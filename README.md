@@ -37,7 +37,7 @@ Before you begin, ensure you have:
 - Firebase CLI ([Install Firebase CLI](https://firebase.google.com/docs/cli))
 - Git
 - Android Studio or VS Code with Flutter extensions
-- A Firebase account
+<!-- - A Firebase account -->
 
 ### Step 1: Clone the Repository
 
@@ -60,7 +60,7 @@ flutter pub get
 cp .env.example .env
 ```
 
-#### 3.2 Get Credentials from Team Lead
+<!-- #### 3.2 Get Credentials from Team Lead
 
 Contact the team lead to get:
 - Firebase configuration values
@@ -76,7 +76,7 @@ FIREBASE_APP_ID=your_actual_app_id
 # ... etc
 ```
 
-**⚠️ NEVER commit the .env file to Git!**
+**⚠️ NEVER commit the .env file to Git!** -->
 
 <!-- ### Step 4: Firebase Configuration
 
