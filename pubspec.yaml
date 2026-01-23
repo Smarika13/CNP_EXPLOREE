@@ -44,5 +44,6 @@ flutter:
   # Include .env file as asset
   assets:
     - .env
+    - assets/images/rhino1.png
     # Add other assets here as needed
     # - assets/images/
