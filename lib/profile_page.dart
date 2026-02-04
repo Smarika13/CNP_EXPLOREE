@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'auth_service.dart';
+import 'screens/profile/my_booking_page.dart';
 import 'shared/common_layout.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -37,7 +38,18 @@ class ProfilePage extends StatelessWidget {
             child: ListView(
               children: [
                 const _AccountTile(icon: Icons.account_circle, label: 'My Account'),
-                const _AccountTile(icon: Icons.book_online, label: 'My Bookings'),
+                _AccountTile(
+                  icon: Icons.book_online,
+                  label: 'My Bookings',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MyBookingPage(),
+                      ),
+                    );
+                  },
+                ),
                 const _AccountTile(icon: Icons.language, label: 'Language Preferences'),
                 const _AccountTile(icon: Icons.edit, label: 'Edit Profile'),
                 const _AccountTile(icon: Icons.help_outline, label: 'FAQS'),

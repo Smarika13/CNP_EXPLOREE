@@ -1,5 +1,7 @@
-// ...existing code...
 import 'package:flutter/material.dart';
+
+import 'screens/booking_page.dart';
+import 'screens/rules/rules_page.dart';
 import 'shared/common_layout.dart';
 
 class ExplorePage extends StatelessWidget {
@@ -48,7 +50,11 @@ class ExplorePage extends StatelessWidget {
             ]),
 
             const SizedBox(height: 20),
+              _buildActivitiesSection(context),
+              const SizedBox(height: 20),
               _buildSuggestedSection(),
+              const SizedBox(height: 20),
+              _buildRulesCard(context),
               const SizedBox(height: 80),
             ],
           ),
@@ -209,5 +215,151 @@ class ExplorePage extends StatelessWidget {
       ),
     );
   }
+
+  // Activities Section
+  Widget _buildActivitiesSection(BuildContext context) {
+    final activities = [
+      {'name': 'Jeep Safari', 'icon': Icons.directions_car},
+      {'name': 'Elephant Safari', 'icon': Icons.pets},
+      {'name': 'Bird Watching', 'icon': Icons.visibility},
+      {'name': 'Jungle Walk', 'icon': Icons.directions_walk},
+      {'name': 'Canoe Ride', 'icon': Icons.directions_boat},
+      {'name': 'Tharu Cultural Program', 'icon': Icons.music_note},
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Book Activities',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF3E2723),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 140,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: activities.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final activity = activities[index];
+                return InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => BookingPage(
+                          activityName: activity['name'] as String,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 140,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black26, blurRadius: 6),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          activity['icon'] as IconData,
+                          size: 40,
+                          color: const Color(0xFF2E7D32),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          activity['name'] as String,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF3E2723),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Rules Card
+  Widget _buildRulesCard(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const RulesPage()),
+            );
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.rule,
+                    color: Colors.orange,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rules & Safety Measures',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Important guidelines for visiting the park',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios, size: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
-// ...existing code...
