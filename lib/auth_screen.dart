@@ -1,5 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'auth_service.dart';
 import 'reset_password.dart';
 
 class AuthPage extends StatefulWidget {
@@ -13,9 +15,10 @@ class _AuthPageState extends State<AuthPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
+
   bool _isLogin = true; // State to toggle between Login and Sign Up
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -24,20 +27,52 @@ class _AuthPageState extends State<AuthPage> {
     super.dispose();
   }
 
-  void _handleSubmit() async {
-    if (_formKey.currentState!.validate()) {
-      final email = _emailController.text.trim();
-      final password = _passwordController.text.trim();
+  Future<void> _handleSubmit() async {
+    if (!_formKey.currentState!.validate()) return;
 
-      // Placeholder for your AuthService logic
-      print("Mode: ${_isLogin ? 'Login' : 'Sign Up'}");
-      print("email: $email, Password: $password");
-      
-      // Example:
-      // final service = AuthService();
-      // String? error = _isLogin 
-      //    ? await service.logIn(email, password) 
-      //    : await service.signUp(email, password);
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final service = AuthService();
+
+    setState(() => _isLoading = true);
+
+    String? error;
+
+    if (_isLogin) {
+      error = await service.logIn(email, password);
+    } else {
+      error = await service.signUp(email, password);
+
+      // Send verification email on successful sign up
+      if (error == null) {
+        try {
+          final user = FirebaseAuth.instance.currentUser;
+          await user?.sendEmailVerification();
+        } catch (_) {
+          // Ignore verification errors in UI flow
+        }
+      }
+    }
+
+    if (!mounted) return;
+
+    setState(() => _isLoading = false);
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isLogin
+                ? 'Login successful'
+                : 'Sign up successful. Check your email for a verification link.',
+          ),
+        ),
+      );
+      // AuthWrapper listens to authStateChanges and will route to HomePage automatically.
     }
   }
 
@@ -153,15 +188,27 @@ class _AuthPageState extends State<AuthPage> {
                         width: double.infinity,
                         height: 45,
                         child: ElevatedButton(
-                          onPressed: _handleSubmit,
+                          onPressed: _isLoading ? null : _handleSubmit,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF7CFF4E),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                           ),
-                          child: Text(
-                            _isLogin ? 'Login' : 'Sign Up',
-                            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                  ),
+                                )
+                              : Text(
+                                  _isLogin ? 'Login' : 'Sign Up',
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                         ),
                       ),
 
