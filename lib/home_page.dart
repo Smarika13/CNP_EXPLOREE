@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
-import 'shared/common_layout.dart';
+import 'auth_service.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return CommonLayout(
-      child: const Center(
-        child: Text('Home Page'),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Home"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+
+            onPressed: () => AuthService().logOut(), // This triggers the Stream update
+          )
+        ],
       ),
+      body: const Center(child: Text("Welcome! You are logged in.")),
     );
   }
 }

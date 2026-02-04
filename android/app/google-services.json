@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "656699802204",
+    "project_id": "cnpp-58096",
+    "storage_bucket": "cnpp-58096.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:656699802204:android:5546a6257fe133692adc99",
+        "android_client_info": {
+          "package_name": "com.example.cnp_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmxW7515k2vF-SgeM5MoTX5x4WdlZo2uo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
