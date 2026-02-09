@@ -1,11 +1,12 @@
+import 'package:cnp_navigator/screens/profile/contact_page.dart';
+import 'package:cnp_navigator/screens/profile/edit_profile_page.dart';
+import 'package:cnp_navigator/screens/profile/faqs_page.dart';
+import 'package:cnp_navigator/screens/profile/language_preferences_page.dart';
+import 'package:cnp_navigator/screens/profile/logout_page.dart';
+import 'package:cnp_navigator/screens/profile/my_account_page.dart';
+import 'package:cnp_navigator/screens/profile/my_booking_page.dart';
 import 'package:flutter/material.dart';
-import 'package:activity_booking_system/screens/profile/logout_page.dart';
-import 'package:activity_booking_system/screens/profile/my_account_page.dart';
-import 'package:activity_booking_system/screens/profile/my_booking_page.dart';
-import 'package:activity_booking_system/screens/profile/language_preferences_page.dart';
-import 'package:activity_booking_system/screens/profile/edit_profile_page.dart';
-import 'package:activity_booking_system/screens/profile/faqs_page.dart';
-import 'package:activity_booking_system/screens/profile/contact_page.dart';
+
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});

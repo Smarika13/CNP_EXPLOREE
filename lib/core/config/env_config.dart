@@ -55,6 +55,9 @@ class EnvConfig {
   static String get appVersion => 
       dotenv.env['APP_VERSION'] ?? '1.0.0';
 
+  static String get apiBaseUrl => 
+      dotenv.env['API_BASE_URL'] ?? '';
+
   // Validation: Check if required variables are set
   static bool validateRequiredVariables() {
     final required = [
@@ -81,7 +84,7 @@ class EnvConfig {
     print('Environment Configuration');
     print('=================================');
     print('Environment: ${environment.name}');
-    print('API Base URL: $apiBaseUrl');
+    print('API Base URL: ${apiBaseUrl}');
     print('Debug Logging: $enableDebugLogging');
     print('Analytics: $enableAnalytics');
     print('Firebase Project: $firebaseProjectId');

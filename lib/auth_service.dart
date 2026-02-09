@@ -22,7 +22,18 @@ class AuthService {
       return e.message;
     }
   }
-
+  //reset password
+Future<void> resetPassword(String email) async {
+  try {
+    await FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
+    // Notify the user to check their inbox
+    print("Password reset email sent!");
+  } on FirebaseAuthException catch (e) {
+    // Handle specific errors (e.g., user not found)
+    print("Error: ${e.message}");
+    rethrow;
+  }
+}
   // Logout
   Future<void> logOut() async => await _auth.signOut();
 }

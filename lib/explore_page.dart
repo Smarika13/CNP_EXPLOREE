@@ -1,11 +1,34 @@
+import 'package:cnp_navigator/database/db_animals.dart';
+import 'package:cnp_navigator/screens/booking_page.dart';
+import 'package:cnp_navigator/screens/rules/rules_page.dart';
 import 'package:flutter/material.dart';
+ // Make sure this path matches your file structure
 
-import 'screens/booking_page.dart';
-import 'screens/rules/rules_page.dart';
-import 'shared/common_layout.dart';
+import '../shared/common_layout.dart';
 
-class ExplorePage extends StatelessWidget {
+class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
+
+  @override
+  State<ExplorePage> createState() => _ExplorePageState();
+}
+
+class _ExplorePageState extends State<ExplorePage> {
+  // 1. STATE VARIABLES FOR FILTERING
+  String? selectedCategory;
+  String? selectedStatus;
+  String? selectedDiet;
+  
+  final AnimalQueryService _queryService = AnimalQueryService();
+
+  // Helper to reset all filters
+  void _clearFilters() {
+    setState(() {
+      selectedCategory = null;
+      selectedStatus = null;
+      selectedDiet = null;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,40 +42,31 @@ class ExplorePage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSearchBar(),
-            _buildFilterLabel(),
-            const SizedBox(height: 8),
+              _buildFilterHeader(),
+              const SizedBox(height: 8),
 
-            // Category Section
-            _buildFilterSection('Category', [
-              'Mammal',
-              'Bird',
-              'Fish',
-              'Reptile',
-              'Amphibian',
-              'Trees',      // changed from Plant → Trees
-              'Butterfly',  // added
-            ]),
+              // CATEGORY SECTION
+              _buildFilterSection('Category', [
+                'Mammal', 'Bird', 'Fish', 'Reptile', 'Amphibian', 'Trees', 'Butterfly',
+              ], selectedCategory, (val) => setState(() => selectedCategory = val)),
 
-            // Conservation Status Section (all items together)
-            _buildFilterSection('Conservation Status', [
-              'Critically Endangered',  // added
-              'Endangered',
-              'Near Threatened',        // added
-              'Vulnerable',
-              'Least Concern',
-            ]),
+              // CONSERVATION SECTION
+              _buildFilterSection('Conservation Status', [
+                'Critically Endangered', 'Endangered', 'Near Threatened', 'Vulnerable', 'Least Concern',
+              ], selectedStatus, (val) => setState(() => selectedStatus = val)),
 
-            // Diet Type Section
-            _buildFilterSection('Diet Type', [
-              'Herbivore',
-              'Carnivore',
-              'Omnivore',
-            ]),
+              // DIET SECTION
+              _buildFilterSection('Diet Type', [
+                'Herbivore', 'Carnivore', 'Omnivore',
+              ], selectedDiet, (val) => setState(() => selectedDiet = val)),
 
-            const SizedBox(height: 20),
-              _buildActivitiesSection(context),
               const SizedBox(height: 20),
-              _buildSuggestedSection(),
+              
+              // 2. THE DYNAMIC DATABASE LIST
+              _buildAnimalStreamList(),
+              
+              const SizedBox(height: 20),
+              _buildActivitiesSection(context),
               const SizedBox(height: 20),
               _buildRulesCard(context),
               const SizedBox(height: 80),
@@ -63,7 +77,134 @@ class ExplorePage extends StatelessWidget {
     );
   }
 
-  // Search Bar
+  // Header with Clear Button
+  Widget _buildFilterHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.filter_list, color: Color(0xFF2E7D32), size: 20),
+              SizedBox(width: 6),
+              Text('Filter', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32))),
+            ],
+          ),
+          if (selectedCategory != null || selectedStatus != null || selectedDiet != null)
+            TextButton(
+              onPressed: _clearFilters,
+              child: const Text('Clear All', style: TextStyle(color: Colors.redAccent)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // DATABASE FETCHING WIDGET
+  Widget _buildAnimalStreamList() {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Suggested for You',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF3E2723)),
+          ),
+          const SizedBox(height: 10),
+          StreamBuilder<List<Animal>>(
+            stream: _queryService.streamAnimals(
+              category: selectedCategory,
+              status: selectedStatus,
+              diet: selectedDiet,
+            ),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final animals = snapshot.data ?? [];
+              
+              if (animals.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Text("No animals found with these filters."),
+                  ),
+                );
+              }
+
+              return SizedBox(
+                height: 200,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: animals.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final animal = animals[index];
+                    return _buildAnimalCard(animal);
+                  },
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // DATA CARD
+  Widget _buildAnimalCard(Animal animal) {
+    return Container(
+      width: 150,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Image.network(
+                animal.mainImg,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: Colors.grey[300],
+                  child: const Icon(Icons.image_not_supported),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  animal.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3E2723)),
+                ),
+                Text(
+                  animal.status,
+                  style: const TextStyle(fontSize: 11, color: Colors.green),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // SEARCH BAR
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -72,17 +213,7 @@ class ExplorePage extends StatelessWidget {
           hintText: 'Search',
           filled: true,
           fillColor: const Color(0xFFECE5D8),
-          prefixIcon: const Icon(
-            Icons.search,
-            color: Color(0xFF2E7D32),
-          ),
-          suffixIcon: IconButton(
-            icon: const Icon(
-              Icons.camera_alt,
-              color: Color(0xFF2E7D32),
-            ),
-            onPressed: () {},
-          ),
+          prefixIcon: const Icon(Icons.search, color: Color(0xFF2E7D32)),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
@@ -92,58 +223,29 @@ class ExplorePage extends StatelessWidget {
     );
   }
 
-  // Filter Label (non-clickable)
-  Widget _buildFilterLabel() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: const [
-          Icon(
-            Icons.filter_list,
-            color: Color(0xFF2E7D32),
-            size: 20,
-          ),
-          SizedBox(width: 6),
-          Text(
-            'Filter',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF2E7D32),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Generic Filter Section
-  Widget _buildFilterSection(String title, List<String> options) {
+  // CHIP GENERATOR
+  Widget _buildFilterSection(String title, List<String> options, String? currentSelection, Function(String?) onSelected) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF3E2723),
-            ),
-          ),
+          Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF3E2723))),
           const SizedBox(height: 6),
           Wrap(
             spacing: 8,
-            runSpacing: 4,
+            runSpacing: 0,
             children: options.map((option) {
+              final isSelected = currentSelection == option;
               return FilterChip(
-                label: Text(option),
-                selected: false,
+                label: Text(option, style: const TextStyle(fontSize: 12)),
+                selected: isSelected,
                 backgroundColor: const Color(0xFFECE5D8),
                 selectedColor: const Color(0xFF81C784),
-                labelStyle: const TextStyle(color: Color(0xFF3E2723)),
-                onSelected: (_) {},
+                labelStyle: TextStyle(color: isSelected ? Colors.white : const Color(0xFF3E2723)),
+                onSelected: (bool selected) {
+                  onSelected(selected ? option : null);
+                },
               );
             }).toList(),
           ),
@@ -152,213 +254,63 @@ class ExplorePage extends StatelessWidget {
     );
   }
 
-  // Suggested Section
-  Widget _buildSuggestedSection() {
-    final suggestions = ['Asian Elephant', 'Bengal Tiger', 'Hornbill'];
-    final icons = [Icons.forest, Icons.pets, Icons.landscape];
-
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Suggested for You',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF3E2723),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 140,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: suggestions.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                return Container(
-                  width: 140,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFECE5D8),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black26, blurRadius: 6),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        icons[index],
-                        size: 40,
-                        color: const Color(0xFF2E7D32),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        suggestions[index],
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF3E2723),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Activities Section
+  // ACTIVITIES LIST
   Widget _buildActivitiesSection(BuildContext context) {
     final activities = [
       {'name': 'Jeep Safari', 'icon': Icons.directions_car},
-      {'name': 'Elephant Safari', 'icon': Icons.pets},
-      {'name': 'Bird Watching', 'icon': Icons.visibility},
-      {'name': 'Jungle Walk', 'icon': Icons.directions_walk},
       {'name': 'Canoe Ride', 'icon': Icons.directions_boat},
-      {'name': 'Tharu Cultural Program', 'icon': Icons.music_note},
+      {'name': 'Jungle Walk', 'icon': Icons.directions_walk},
     ];
 
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Book Activities',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF3E2723),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 140,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: activities.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final activity = activities[index];
-                return InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => BookingPage(
-                          activityName: activity['name'] as String,
-                        ),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    width: 140,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black26, blurRadius: 6),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          activity['icon'] as IconData,
-                          size: 40,
-                          color: const Color(0xFF2E7D32),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          activity['name'] as String,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF3E2723),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Rules Card
-  Widget _buildRulesCard(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const RulesPage()),
-            );
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.rule,
-                    color: Colors.orange,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                const Expanded(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12),
+          child: Text('Book Activities', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF3E2723))),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 100,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            scrollDirection: Axis.horizontal,
+            itemCount: activities.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              return InkWell(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => BookingPage(activityName: activities[index]['name'] as String))),
+                child: Container(
+                  width: 100,
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        'Rules & Safety Measures',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Important guidelines for visiting the park',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
+                      Icon(activities[index]['icon'] as IconData, color: const Color(0xFF2E7D32)),
+                      Text(activities[index]['name'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10)),
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward_ios, size: 16),
-              ],
-            ),
+              );
+            },
           ),
         ),
+      ],
+    );
+  }
+
+  // RULES CARD
+  Widget _buildRulesCard(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: ListTile(
+        tileColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        leading: const Icon(Icons.rule, color: Colors.orange),
+        title: const Text('Rules & Safety', style: TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: const Text('Read before your visit'),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RulesPage())),
       ),
     );
   }
