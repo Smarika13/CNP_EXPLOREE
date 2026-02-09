@@ -1,8 +1,8 @@
 enum UserRole{
     user,
-    admin,
+    admin;
 
-    String get value{
+    String get value {
         switch(this) {
             case UserRole.user:
                 return 'user';
@@ -11,12 +11,14 @@ enum UserRole{
         }
     }
 
-    static UserRole fromString(String role){
-        switch(role.toLowerCase()):{
-            case: 'admin':
+    static UserRole fromString(String role) {
+        switch(role.toLowerCase()) {
+            case 'admin':
                 return UserRole.admin;
-            case: 'user':
+            case 'user':
                 return UserRole.user;
+            default:
+                throw ArgumentError('Unknown role: $role');
         }
     }
 }

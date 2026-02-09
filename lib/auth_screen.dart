@@ -171,7 +171,7 @@ class _AuthPageState extends State<AuthPage> {
                             onPressed: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => const ResetPasswordPage()),
+                                MaterialPageRoute(builder: (context) =>  ForgotPasswordPage()),
                               );
                             },
                             child: const Text(
