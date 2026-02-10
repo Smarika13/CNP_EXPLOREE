@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import 'screens/chatbot/chatbot_page.dart';
 import 'screens/rules/rules_page.dart';
 import 'shared/common_layout.dart';
