@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // 1. Import Auth
 import 'package:flutter/material.dart';
 
 class MyBookingPage extends StatefulWidget {
@@ -15,7 +16,7 @@ class _MyBookingPageState extends State<MyBookingPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Cancel Booking?"),
-        content: const Text("Are you sure you want to remove this activity from your schedule?"),
+        content: const Text("Are you sure you want to remove this activity?"),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("No")),
           TextButton(
@@ -36,78 +37,78 @@ class _MyBookingPageState extends State<MyBookingPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 2. Get current user's UID
+    final String? userId = FirebaseAuth.instance.currentUser?.uid;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("My Booking"),
-        backgroundColor: const Color(0xFF4FBF26), // Your custom green
+        title: const Text("My Bookings"),
+        backgroundColor: const Color(0xFF4FBF26),
         centerTitle: true,
       ),
-      // We use StreamBuilder to listen to the 'bookings' collection in real-time
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('bookings')
-            .orderBy('bookingDate', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          // 1. Check for errors
-          if (snapshot.hasError) return const Center(child: Text("Something went wrong"));
-          
-          // 2. Show loader while fetching data
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      // 3. Check if user is logged in before showing the stream
+      body: userId == null
+          ? const Center(child: Text("Please log in to view your bookings."))
+          : StreamBuilder<QuerySnapshot>(
+              // 4. Update the stream with .where filter
+              stream: FirebaseFirestore.instance
+                  .collection('bookings')
+                  .where('userId', isEqualTo: userId) // Only fetch "my" bookings
+                  .orderBy('bookingDate', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  // Tip: Check your debug console for a link to create an index if this errors
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                }
 
-          final docs = snapshot.data!.docs;
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          // 3. Handle Empty State
-          if (docs.isEmpty) {
-            return const Center(
-              child: Text(
-                "No bookings yet.",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-            );
-          }
+                final docs = snapshot.data!.docs;
 
-          // 4. Build the list with real data
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>;
-              
-              // Formatting the list of activities into a single string
-              final List<dynamic> activityList = data['activities'] ?? [];
-              final String activityNames = activityList.join(', ');
+                if (docs.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      "You have no bookings yet.",
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                    ),
+                  );
+                }
 
-              return Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 3,
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                child: ListTile(
-                  title: Text(
-                    activityNames,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    "Park: ${data['parkName']}\nStatus: ${data['status']}",
-                    style: const TextStyle(height: 1.5),
-                  ),
-                  // Added a delete icon so the user can actually interact with their data
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                    onPressed: () => _confirmDeletion(context, doc.id),
-                  ),
-                  onTap: () {
-                    // Optional: Navigate to a detailed view
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final doc = docs[index];
+                    final data = doc.data() as Map<String, dynamic>;
+                    final List<dynamic> activityList = data['activities'] ?? [];
+                    final String activityNames = activityList.join(', ');
+
+                    return Card(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 3,
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      child: ListTile(
+                        title: Text(
+                          activityNames,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          "Park: ${data['parkName']}\nStatus: ${data['status']}",
+                          style: const TextStyle(height: 1.5),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          onPressed: () => _confirmDeletion(context, doc.id),
+                        ),
+                      ),
+                    );
                   },
-                ),
-              );
-            },
-          );
-        },
-      ),
+                );
+              },
+            ),
     );
   }
 }
