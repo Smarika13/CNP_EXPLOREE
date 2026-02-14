@@ -19,7 +19,7 @@ class CommonLayout extends StatelessWidget {
             color: Color(0xFF2E7D32),
           ),
           child: const Text(
-            'CMP explore',
+            'CNP EXPLOREE',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,

@@ -11,7 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # Firebase (Latest 2026 Stable Versions)
+  # Firebase (Latest Stable Versions)
   firebase_core: ^4.4.0
   firebase_auth: ^6.1.4
   cloud_firestore: ^6.1.2
@@ -43,6 +43,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   
+  
   assets:
     - .env
-    - assets/images/rhino1.png
+    - assets/images/
+    
