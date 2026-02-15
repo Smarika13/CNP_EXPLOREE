@@ -67,7 +67,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), // Cleaner background
+      backgroundColor: const Color(0xFFF8F9FA), 
       body: Stack(
         children: [
           CustomScrollView(
@@ -78,7 +78,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 expandedHeight: 280.0,
                 pinned: true,
                 stretch: true,
-                backgroundColor: const Color(0xFF4CAF50),
+                backgroundColor: const Color(0xFF1B5E20),
                 elevation: 0,
                 flexibleSpace: FlexibleSpaceBar(
                   centerTitle: true,
@@ -95,7 +95,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ],
               ),
 
-              // 2. COMPACT TITLE SECTION
+              // 2. TITLE SECTION
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 5),
@@ -111,7 +111,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ),
 
-              // 3. ACTIVITY LIST (SLIMMER CARDS)
+              // 3. ACTIVITY LIST
               SliverPadding(
                 padding: const EdgeInsets.only(bottom: 110),
                 sliver: _buildActivitiesFirebaseList(),
@@ -119,7 +119,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ],
           ),
 
-          // 4. NON-CONGESTED FLOATING DOCK
+          // 4. FLOATING DOCK
           _buildFloatingActionUI(),
         ],
       ),
@@ -178,7 +178,7 @@ class _DashboardPageState extends State<DashboardPage> {
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                height: 85, // Slimmer height to reduce congestion
+                height: 85, 
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(15),
@@ -186,7 +186,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
                   ],
                   border: Border.all(
-                    color: isSelected ? const Color(0xFF4CAF50) : Colors.transparent, 
+                    color: isSelected ? const Color(0xFF1B5E20) : Colors.transparent, 
                     width: 1.5
                   ),
                 ),
@@ -211,17 +211,17 @@ class _DashboardPageState extends State<DashboardPage> {
                       padding: const EdgeInsets.only(right: 12),
                       child: isSelected 
                         ? IconButton(
-                            icon: const Icon(Icons.add_circle, color: Color(0xFF4CAF50), size: 32),
+                            icon: const Icon(Icons.check_circle, color: Color(0xFF1B5E20), size: 32),
                             onPressed: () => setState(() => _selectedActivities.remove(name)),
                           )
                         : TextButton(
                             onPressed: () => setState(() => _selectedActivities.add(name)),
                             style: TextButton.styleFrom(
-                              backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
+                              backgroundColor: const Color(0xFF1B5E20).withOpacity(0.1),
                               minimumSize: const Size(65, 34),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            child: const Text("Book", style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.bold)),
+                            child: const Text("Book", style: TextStyle(color: Color(0xFF1B5E20), fontWeight: FontWeight.bold)),
                           ),
                     ),
                   ],
@@ -243,7 +243,6 @@ class _DashboardPageState extends State<DashboardPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // Dynamic Booking Button
           if (_selectedActivities.isNotEmpty)
             Expanded(
               child: AnimatedContainer(
@@ -251,20 +250,32 @@ class _DashboardPageState extends State<DashboardPage> {
                 height: 55,
                 margin: const EdgeInsets.only(right: 12),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)]),
+                  gradient: const LinearGradient(colors: [Color(0xFF1B5E20), Color(0xFF1B5E20)]),
                   borderRadius: BorderRadius.circular(15),
-                  boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 10)],
+                  boxShadow: [BoxShadow(color: const Color(0xFF1B5E20).withOpacity(0.3), blurRadius: 10)],
                 ),
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BookingPage(activityList: _selectedActivities))),
+                  // FIX: Added async/await and clear()
+                  onPressed: () async {
+                    await Navigator.push(
+                      context, 
+                      MaterialPageRoute(
+                        builder: (context) => BookingPage(activityList: _selectedActivities)
+                      )
+                    );
+                    
+                    // This executes when the user returns from the BookingPage
+                    setState(() {
+                      _selectedActivities.clear();
+                    });
+                  },
                   child: Text("CONFIRM ${_selectedActivities.length}", 
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
               ),
             ),
 
-          // Chatbot stays on the right and never overlaps
           Container(
             height: 55, width: 55,
             decoration: BoxDecoration(

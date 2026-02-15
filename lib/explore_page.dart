@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart'; // Import for Map Launching
 import 'package:cnp_navigator/animal_detail_page.dart';
 import 'package:cnp_navigator/database/db_animals.dart';
 import 'package:cnp_navigator/screens/rules/rules_page.dart';
 import 'package:cnp_navigator/screens/chatbot/chatbot_page.dart';
-import '../../shared/common_layout.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -14,21 +14,21 @@ class ExplorePage extends StatefulWidget {
 }
 
 class _ExplorePageState extends State<ExplorePage> {
-  // --- STATE VARIABLES ---
   String? selectedCategory;
+  String? selectedTag;
   String _searchText = "";
   final TextEditingController _searchController = TextEditingController();
   final AnimalQueryService _queryService = AnimalQueryService();
 
-  // --- CAROUSEL STATE ---
   final PageController _pageController = PageController();
   int _currentPage = 0;
   Timer? _timer;
-  final List<String> _carouselImages = [
+
+  final List<String> sliderImages = [
     "assets/images/rhino-1.jpg",
     "assets/images/canoe riding.jpg",
     "assets/images/chitwan_swamp.jpg",
-    "assets/images/der.webp",
+    "assets/images/deer.webp",
     "assets/images/jeep safari.jpg",
   ];
 
@@ -39,9 +39,10 @@ class _ExplorePageState extends State<ExplorePage> {
   }
 
   void _startAutoSlider() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (_pageController.hasClients) {
-        int next = (_currentPage + 1) % _carouselImages.length;
+        int next = (_currentPage + 1) % sliderImages.length;
         _pageController.animateToPage(
           next,
           duration: const Duration(milliseconds: 800),
@@ -51,311 +52,302 @@ class _ExplorePageState extends State<ExplorePage> {
     });
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _pageController.dispose();
-    _searchController.dispose();
-    super.dispose();
+  void _stopAutoSlider() => _timer?.cancel();
+
+  // --- NEW: Map Launcher Logic ---
+  Future<void> _launchMap() async {
+    // Exact coordinates for Chitwan National Park HQ
+    const double lat = 27.5000;
+    const double lng = 84.3333;
+    final Uri googleMapsUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$lng");
+
+    if (await canLaunchUrl(googleMapsUrl)) {
+      await launchUrl(googleMapsUrl, mode: LaunchMode.externalApplication);
+    } else {
+      throw 'Could not launch $googleMapsUrl';
+    }
   }
 
-  void _clearFilters() {
-    setState(() {
-      selectedCategory = null;
-      _searchText = "";
-      _searchController.clear();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CommonLayout(
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF4F7F5),
-        floatingActionButton: _buildChatbotFAB(context),
-        body: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            // 1. INTERACTIVE CAROUSEL HEADER (Supports Manual Swipe)
-            SliverAppBar(
-              expandedHeight: 280.0,
-              pinned: true,
-              stretch: true,
-              backgroundColor: const Color(0xFF1B5E20),
-              flexibleSpace: FlexibleSpaceBar(
-                centerTitle: true,
-                title: const Text('EXPLORE CHITWAN',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
-                        fontSize: 16)),
-                background: _buildCarouselStack(),
-              ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.info_outline_rounded, color: Colors.white),
-                  onPressed: () => Navigator.push(
-                      context, MaterialPageRoute(builder: (context) => const RulesPage())),
-                )
-              ],
-            ),
-
-            // 2. SEARCH & CATEGORY FILTERS
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSearchBar(),
-                    const SizedBox(height: 20),
-                    _buildFilterSection(),
-                  ],
-                ),
-              ),
-            ),
-
-            // 3. STATS SECTION
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: _buildOverviewSection(),
-              ),
-            ),
-
-            // 4. FILTERED WILDLIFE LIST (Horizontal)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 25, 16, 10),
-                child: _buildSectionHeader('🐅 Wildlife Encyclopedia', 'Discover the park residents'),
-              ),
-            ),
-            _buildWildlifeHorizontalList(),
-
-            // 5. SEASONAL GUIDE
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    _buildSectionHeader('📅 Best Time to Visit', 'Sighting Forecast'),
-                    const SizedBox(height: 10),
-                    _buildBestTimeTable(),
-                    const SizedBox(height: 25),
-                    _buildSafetyBanner(context),
-                    const SizedBox(height: 100),
-                  ],
-                ),
-              ),
-            ),
+  void _showDetailSheet(String title, Widget content) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        height: MediaQuery.of(context).size.height * 0.65,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
+            const SizedBox(height: 20),
+            Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1B5E20))),
+            const Divider(),
+            const SizedBox(height: 10),
+            Expanded(child: content),
           ],
         ),
       ),
     );
   }
 
-  // --- COMPONENT: INTERACTIVE CAROUSEL ---
-  Widget _buildCarouselStack() {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        PageView.builder(
-          controller: _pageController,
-          itemCount: _carouselImages.length,
-          onPageChanged: (idx) {
-            setState(() => _currentPage = idx);
-          },
-          itemBuilder: (ctx, i) => Image.asset(_carouselImages[i], fit: BoxFit.cover),
-        ),
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.transparent, Colors.black87],
+  @override
+  Widget build(BuildContext context) {
+    const Color forestGreen = Color(0xFF1B5E20);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F7F5),
+      floatingActionButton: _buildChatbotFAB(context),
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 300.0,
+            pinned: true,
+            stretch: true,
+            backgroundColor: forestGreen,
+            flexibleSpace: FlexibleSpaceBar(
+              centerTitle: true,
+              title: const Text('CNP EXPLORE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1.5, shadows: [Shadow(blurRadius: 12, color: Colors.black)])),
+              background: _buildCarouselStack(),
             ),
           ),
-        ),
-        Positioned(
-          bottom: 60,
-          left: 0,
-          right: 0,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              _carouselImages.length,
-              (i) => AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                height: 6,
-                width: _currentPage == i ? 24 : 6,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(_currentPage == i ? 0.9 : 0.4),
-                  borderRadius: BorderRadius.circular(10),
-                ),
+          
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  _buildSearchBar(forestGreen),
+                  const SizedBox(height: 12),
+                  _buildQuickSearchChips(forestGreen),
+                  const SizedBox(height: 20),
+                  _buildFilterSection(forestGreen),
+                ],
               ),
             ),
           ),
-        ),
-      ],
+
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: _buildOverviewSection(),
+            ),
+          ),
+
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 25, 16, 10),
+              child: _buildSectionHeader('🐅 Wildlife Encyclopedia', 
+                selectedTag != null ? 'Showing $selectedTag residents' : 'Discover the park residents', 
+                forestGreen),
+            ),
+          ),
+          _buildWildlifeHorizontalList(),
+
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  _buildSectionHeader('📅 Best Time to Visit', 'Sighting Forecast', forestGreen),
+                  const SizedBox(height: 10),
+                  _buildBestTimeTable(),
+                  const SizedBox(height: 25),
+                  _buildSafetyBanner(context, forestGreen),
+                  const SizedBox(height: 100),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  // --- COMPONENT: SEARCH BAR WITH CAMERA ---
-  Widget _buildSearchBar() {
+  Widget _buildCarouselStack() {
+    return Listener(
+      onPointerDown: (_) => _stopAutoSlider(),
+      onPointerUp: (_) => _startAutoSlider(),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            itemCount: sliderImages.length,
+            physics: const AlwaysScrollableScrollPhysics(),
+            onPageChanged: (idx) => setState(() => _currentPage = idx),
+            itemBuilder: (ctx, i) => Image.asset(sliderImages[i], fit: BoxFit.cover),
+          ),
+          const IgnorePointer(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black38, Colors.transparent, Colors.black54])))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(Color forestGreen) {
     return Container(
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]),
       child: TextField(
         controller: _searchController,
-        onChanged: (val) => setState(() => _searchText = val),
+        onChanged: (val) => setState(() {
+          _searchText = val;
+          selectedTag = null;
+        }),
         decoration: InputDecoration(
-          hintText: 'Search species (e.g. Rhino)...',
-          prefixIcon: const Icon(Icons.search, color: Color(0xFF4CAF50)),
-          suffixIcon: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.camera_alt_rounded, color: Colors.grey),
-                onPressed: () {
-                  // TODO: Implement Visual/Image Search
-                },
-              ),
-              if (_searchText.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => _searchText = "");
-                  },
-                ),
-            ],
-          ),
+          hintText: 'Search species...',
+          prefixIcon: Icon(Icons.search, color: forestGreen),
+          suffixIcon: Icon(Icons.camera_alt_rounded, color: forestGreen),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 15),
+          contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
         ),
       ),
     );
   }
 
-  // --- COMPONENT: CATEGORY FILTERS ---
-  Widget _buildFilterSection() {
-    final categories = ['Mammal', 'Bird', 'Reptile', 'Amphibian'];
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        const Text('Refine by Category',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1B5E20))),
-        if (selectedCategory != null || _searchText.isNotEmpty)
-          TextButton(
-              onPressed: _clearFilters,
-              child: const Text('Reset', style: TextStyle(color: Colors.red))),
-      ]),
-      const SizedBox(height: 8),
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Wrap(
-          spacing: 8,
-          children: categories.map((c) {
-            return ChoiceChip(
-              label: Text(c),
-              selected: selectedCategory == c,
-              onSelected: (s) => setState(() => selectedCategory = s ? c : null),
-              selectedColor: const Color(0xFF4CAF50),
-              labelStyle: TextStyle(
-                  color: selectedCategory == c ? Colors.white : Colors.black87,
-                  fontWeight: FontWeight.bold),
-            );
-          }).toList(),
-        ),
+  Widget _buildQuickSearchChips(Color forestGreen) {
+    final quickTags = ['Endangered', 'Predators', 'Herbivores', 'Rare'];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: quickTags.map((tag) {
+          final isSelected = selectedTag == tag;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: ChoiceChip(
+              label: Text(tag, style: const TextStyle(fontSize: 12)),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  selectedTag = selected ? tag : null;
+                  _searchText = "";
+                  _searchController.clear();
+                });
+              },
+              selectedColor: forestGreen.withOpacity(0.2),
+              backgroundColor: Colors.white,
+              labelStyle: TextStyle(color: isSelected ? forestGreen : Colors.black87, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+              side: BorderSide(color: isSelected ? forestGreen : Colors.grey.shade300),
+            ),
+          );
+        }).toList(),
       ),
-    ]);
+    );
   }
 
-  // --- COMPONENT: WILDLIFE LIST (REAL-TIME FILTERED) ---
+  Widget _buildFilterSection(Color forestGreen) {
+    final categories = ['Mammal', 'Bird', 'Reptile', 'Amphibian'];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: categories.map((c) => Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: ChoiceChip(
+            label: Text(c),
+            selected: selectedCategory == c,
+            onSelected: (s) => setState(() => selectedCategory = s ? c : null),
+            selectedColor: forestGreen,
+            labelStyle: TextStyle(color: selectedCategory == c ? Colors.white : Colors.black),
+          ),
+        )).toList(),
+      ),
+    );
+  }
+
+  Widget _buildOverviewSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+        _Stat(Icons.landscape, '952', 'km²', onTap: () {
+          _showDetailSheet('Chitwan National Park Map', Column(
+            children: [
+              const Text('Nepal\'s first national park, stretching across 952.63 km² of subtropical lowland.', textAlign: TextAlign.center),
+              const SizedBox(height: 15),
+              // THE MAP IMAGE
+              ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Image.network(
+                  "https://whc.unesco.org/uploads/activities/documents/activity-558-1.jpg", 
+                  height: 250, 
+                  width: double.infinity, 
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.map_outlined, size: 100, color: Colors.grey),
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: _launchMap,
+                icon: const Icon(Icons.map_rounded),
+                label: const Text('Open in Google Maps'),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B5E20), foregroundColor: Colors.white),
+              )
+            ],
+          ));
+        }),
+        _Stat(Icons.pets, '68', 'Species', onTap: () {
+          _showDetailSheet('Park Species', const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('The park is a biodiversity hotspot:'),
+              SizedBox(height: 10),
+              Text('• 68 Mammal Species (including the Bengal Tiger)'),
+              Text('• 544 Bird Species'),
+              Text('• 126 Fish Species'),
+              Text('• 56 Herpetofauna (Reptiles & Amphibians)'),
+            ],
+          ));
+        }),
+        _Stat(Icons.water_drop, '3', 'Rivers', onTap: () {
+          _showDetailSheet('The Lifeline Rivers', const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('• Rapti River: Ideal for spotting crocodiles and birds.', style: TextStyle(fontSize: 16)),
+            SizedBox(height: 12),
+            Text('• Narayani River: The deepest river in Nepal, forming the western boundary.', style: TextStyle(fontSize: 16)),
+            SizedBox(height: 12),
+            Text('• Reu River: A smaller river running through the southern forests.', style: TextStyle(fontSize: 16)),
+          ]));
+        }),
+      ]),
+    );
+  }
+
   Widget _buildWildlifeHorizontalList() {
     return SliverToBoxAdapter(
       child: StreamBuilder<List<Animal>>(
         stream: _queryService.streamAnimals(category: selectedCategory),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
-          }
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text("No animals found."));
-          }
-
-          // Combined local filter logic
-          final filteredList = snapshot.data!.where((animal) {
-            final matchesSearch = animal.name.toLowerCase().contains(_searchText.toLowerCase());
-            return matchesSearch;
+          final filtered = snapshot.data!.where((animal) {
+            final matchesText = animal.name.toLowerCase().contains(_searchText.toLowerCase());
+            final matchesTag = selectedTag == null || 
+                               animal.description.toLowerCase().contains(selectedTag!.toLowerCase());
+            return matchesText && matchesTag;
           }).toList();
 
-          if (filteredList.isEmpty) {
-            return const SizedBox(height: 100, child: Center(child: Text("No matches found.")));
+          if (filtered.isEmpty) {
+            return const SizedBox(height: 100, child: Center(child: Text('No species found.')));
           }
 
           return SizedBox(
-            height: 250,
+            height: 220,
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              itemCount: filteredList.length,
-              itemBuilder: (context, index) {
-                final animal = filteredList[index];
+              itemCount: filtered.length,
+              itemBuilder: (context, i) {
+                final animal = filtered[i];
                 return GestureDetector(
-                  onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => AnimalDetailPage(animal: animal))),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => AnimalDetailPage(animal: animal))),
                   child: Container(
-                    width: 220,
-                    margin: const EdgeInsets.only(right: 15, bottom: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5))
-                      ],
-                    ),
+                    width: 180,
+                    margin: const EdgeInsets.only(right: 15),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5, offset: const Offset(0, 3))]),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                          child: Image.network(animal.mainImg,
-                              height: 130, width: double.infinity, fit: BoxFit.cover,
-                              errorBuilder: (c, e, s) => Container(color: Colors.grey, height: 130)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(animal.name,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                              const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                    color: const Color(0xFF4CAF50).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8)),
-                                child: Text(animal.status,
-                                    style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Color(0xFF2E7D32),
-                                        fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                          ),
-                        )
+                        ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(15)), child: Image.network(animal.mainImg, height: 120, width: 180, fit: BoxFit.cover)),
+                        Padding(padding: const EdgeInsets.all(12.0), child: Text(animal.name, style: const TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
                       ],
                     ),
                   ),
@@ -368,73 +360,17 @@ class _ExplorePageState extends State<ExplorePage> {
     );
   }
 
-  // --- STATS, BUTTONS & OTHER UI ---
-  Widget _buildOverviewSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-      child: const Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-        _Stat(Icons.landscape, '952', 'km²'),
-        _Stat(Icons.pets, '68', 'Species'),
-        _Stat(Icons.water_drop, '3', 'Rivers'),
-      ]),
-    );
-  }
-
-  Widget _buildChatbotFAB(BuildContext context) {
-    return SizedBox(
-      height: 60, width: 60,
-      child: FloatingActionButton(
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChatbotPage())),
-        backgroundColor: const Color(0xFFAD1457),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        child: const Icon(Icons.chat_bubble_rounded, color: Colors.white),
-      ),
-    );
-  }
-
-  Widget _buildBestTimeTable() {
-    return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
-      child: const Column(children: [
-        _SeasonRow('Oct - Mar', 'Peak Season - Best Visibility', Colors.green),
-        Divider(height: 1),
-        _SeasonRow('Apr - Jun', 'Safari Season - Tiger Sightings', Colors.orange),
-      ]),
-    );
-  }
-
-  Widget _buildSafetyBanner(BuildContext context) {
-    return InkWell(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RulesPage())),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)]),
-            borderRadius: BorderRadius.circular(20)),
-        child: const Row(children: [
-          Icon(Icons.security, color: Colors.white),
-          SizedBox(width: 15),
-          Expanded(child: Text('Essential Safety Guide', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-          Icon(Icons.chevron_right, color: Colors.white),
-        ]),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title, String sub) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1B5E20))),
-      Text(sub, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-    ]);
-  }
+  Widget _buildChatbotFAB(BuildContext context) => FloatingActionButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChatbotPage())), backgroundColor: const Color(0xFFAD1457), child: const Icon(Icons.chat_bubble_rounded, color: Colors.white));
+  Widget _buildBestTimeTable() => Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)), child: const Column(children: [_SeasonRow('Oct - Mar', 'Peak Season', Colors.green), Divider(height: 1), _SeasonRow('Apr - Jun', 'Safari Season', Colors.orange)]));
+  Widget _buildSafetyBanner(BuildContext context, Color forestGreen) => InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RulesPage())), child: Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(gradient: LinearGradient(colors: [forestGreen, const Color(0xFF2E7D32)]), borderRadius: BorderRadius.circular(20)), child: const Row(children: [Icon(Icons.security, color: Colors.white), SizedBox(width: 15), Expanded(child: Text('Essential Safety Guide', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))), Icon(Icons.chevron_right, color: Colors.white)])));
+  Widget _buildSectionHeader(String title, String sub, Color forestGreen) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: forestGreen)), Text(sub, style: const TextStyle(fontSize: 12, color: Colors.grey))]);
 }
 
 class _Stat extends StatelessWidget {
-  final IconData icon; final String val; final String label;
-  const _Stat(this.icon, this.val, this.label);
+  final IconData icon; final String val; final String label; final VoidCallback onTap;
+  const _Stat(this.icon, this.val, this.label, {required this.onTap});
   @override build(BuildContext context) {
-    return Column(children: [Icon(icon, color: Colors.green), Text(val, style: const TextStyle(fontWeight: FontWeight.bold)), Text(label, style: const TextStyle(fontSize: 10))]);
+    return InkWell(onTap: onTap, borderRadius: BorderRadius.circular(10), child: Padding(padding: const EdgeInsets.all(8.0), child: Column(children: [Icon(icon, color: const Color(0xFF1B5E20)), Text(val, style: const TextStyle(fontWeight: FontWeight.bold)), Text(label, style: const TextStyle(fontSize: 10))])));
   }
 }
 
@@ -442,12 +378,6 @@ class _SeasonRow extends StatelessWidget {
   final String date; final String desc; final Color color;
   const _SeasonRow(this.date, this.desc, this.color);
   @override build(BuildContext context) {
-    return Padding(padding: const EdgeInsets.all(15), child: Row(children: [
-      Container(width: 4, height: 18, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
-      const SizedBox(width: 15),
-      Text(date, style: const TextStyle(fontWeight: FontWeight.bold)),
-      const SizedBox(width: 10),
-      Expanded(child: Text(desc, style: const TextStyle(fontSize: 12, color: Colors.black54))),
-    ]));
+    return Padding(padding: const EdgeInsets.all(15), child: Row(children: [Container(width: 4, height: 18, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))), const SizedBox(width: 15), Text(date, style: const TextStyle(fontWeight: FontWeight.bold)), const SizedBox(width: 10), Expanded(child: Text(desc, style: const TextStyle(fontSize: 12, color: Colors.black54)))]));
   }
 }
