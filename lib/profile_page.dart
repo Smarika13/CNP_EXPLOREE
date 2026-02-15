@@ -42,14 +42,14 @@ class _ProfilePageState extends State<ProfilePage> {
                     // Back button appears when not on the main menu
                     if (_currentView != ProfileView.menu)
                       IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Color(0xFF4FBF26)),
+                        icon: const Icon(Icons.arrow_back, color: Color(0xFF1B5E20)),
                         onPressed: () {
                           setState(() => _currentView = ProfileView.menu);
                         },
                       ),
                     const CircleAvatar(
                       radius: 30,
-                      backgroundColor: Color(0xFF4FBF26),
+                      backgroundColor: Color(0xFF1B5E20),
                       child: Icon(Icons.person, size: 32, color: Colors.white),
                     ),
                     const SizedBox(width: 16),
@@ -148,7 +148,7 @@ class _AccountTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: const Color(0xFF4FBF26)),
+      leading: Icon(icon, color: const Color(0xFF1B5E20)),
       title: Text(label),
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: onTap,

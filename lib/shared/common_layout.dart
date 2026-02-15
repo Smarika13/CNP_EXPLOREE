@@ -16,7 +16,7 @@ class CommonLayout extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           decoration: const BoxDecoration(
-            color: Color(0xFF2E7D32),
+            color: Color(0xFF1B5E20),
           ),
           child: const Text(
             'CNP EXPLOREE',

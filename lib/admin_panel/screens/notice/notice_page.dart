@@ -5,13 +5,11 @@ class NoticePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Defining the color as a constant for easy maintenance
-    const primaryGreen = Color(0xFF1B5E20);
-
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F6F5),
+
         body: Column(
           children: [
             const SizedBox(height: 16),
@@ -30,10 +28,9 @@ class NoticePage extends StatelessWidget {
                 ],
               ),
               child: const TabBar(
-                labelColor: primaryGreen,
+                labelColor: Color(0xFF4FBF26),
                 unselectedLabelColor: Colors.black54,
-                indicatorColor: primaryGreen,
-                indicatorSize: TabBarIndicatorSize.tab,
+                indicatorColor: Color(0xFF4FBF26),
                 tabs: [
                   Tab(icon: Icon(Icons.notifications), text: "Notifications"),
                   Tab(icon: Icon(Icons.newspaper), text: "News"),
@@ -47,43 +44,51 @@ class NoticePage extends StatelessWidget {
             Expanded(
               child: TabBarView(
                 children: [
-                  // Notifications Tab
+                  // Notifications
                   ListView(
                     padding: const EdgeInsets.all(16),
                     children: const [
                       Card(
                         child: ListTile(
-                          leading: Icon(Icons.notifications, color: primaryGreen),
+                          leading: Icon(Icons.notifications,
+                              color: Color(0xFF4FBF26)),
                           title: Text("Booking Confirmed"),
-                          subtitle: Text("Your Jeep Safari booking is confirmed."),
+                          subtitle:
+                          Text("Your Jeep Safari booking is confirmed."),
                         ),
                       ),
                       Card(
                         child: ListTile(
-                          leading: Icon(Icons.notifications, color: primaryGreen),
+                          leading: Icon(Icons.notifications,
+                              color: Color(0xFF4FBF26)),
                           title: Text("Safari Reminder"),
-                          subtitle: Text("Elephant Safari scheduled for tomorrow."),
+                          subtitle:
+                          Text("Elephant Safari scheduled for tomorrow."),
                         ),
                       ),
                     ],
                   ),
 
-                  // News Tab
+                  // News
                   ListView(
                     padding: const EdgeInsets.all(16),
                     children: const [
                       Card(
                         child: ListTile(
-                          leading: Icon(Icons.newspaper, color: primaryGreen),
+                          leading: Icon(Icons.newspaper,
+                              color: Color(0xFF4FBF26)),
                           title: Text("Park Entry Fee Update"),
-                          subtitle: Text("New fees effective from next week."),
+                          subtitle:
+                          Text("New fees effective from next week."),
                         ),
                       ),
                       Card(
                         child: ListTile(
-                          leading: Icon(Icons.newspaper, color: primaryGreen),
+                          leading: Icon(Icons.newspaper,
+                              color: Color(0xFF4FBF26)),
                           title: Text("Safari Timings Updated"),
-                          subtitle: Text("Jeep Safari timings revised this month."),
+                          subtitle:
+                          Text("Jeep Safari timings revised this month."),
                         ),
                       ),
                     ],

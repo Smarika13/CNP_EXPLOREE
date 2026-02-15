@@ -1,8 +1,10 @@
+import 'package:cnp_navigator/admin_panel/admin/admin_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'auth_screen.dart';
-import 'home_page.dart';
+import 'auth_screen.dart';        
+import 'home_page.dart';          
 import 'verify_email_page.dart';
+
 
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
@@ -20,17 +22,26 @@ class AuthWrapper extends StatelessWidget {
 
         final user = snapshot.data;
 
+        // 1. If not logged in, show the Login screen
         if (user == null) {
-          // Not logged in
           return const AuthPage();
         }
 
-        // Logged in but email not verified yet -> show verification screen
+        final email = user.email ?? "";
+        final isAdmin = email == 'chitwan@admin.cnp' || email.endsWith('.admin.cnp');
+
+        // 2. ADMIN BYPASS
+        // Now returns the actual dashboard instead of just text
+        if (isAdmin) {
+          return const AdminPage(); 
+        }
+
+        // 3. CHECK CUSTOMER VERIFICATION
         if (!user.emailVerified) {
           return const VerifyEmailPage();
         }
 
-        // Logged in and verified
+        // 4. Verified Customer
         return const HomePage();
       },
     );
