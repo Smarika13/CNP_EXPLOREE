@@ -193,7 +193,7 @@ class _SignupPage2State extends State<SignupPage2> {
 
                       // Gender Dropdown
                       DropdownButtonFormField<String>(
-                        initialValue: selectedGender,
+                        value: selectedGender,
                         decoration: InputDecoration(
                           labelText: "Gender *",
                           filled: true,
@@ -221,7 +221,7 @@ class _SignupPage2State extends State<SignupPage2> {
 
                       // Nationality Dropdown
                       DropdownButtonFormField<String>(
-                        initialValue: selectedNationality,
+                        value: selectedNationality,
                         decoration: InputDecoration(
                           labelText: "Nationality *",
                           filled: true,

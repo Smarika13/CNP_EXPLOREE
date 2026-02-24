@@ -273,7 +273,7 @@ class _BookingPageState extends State<BookingPage> {
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                initialValue: selectedTime.isEmpty ? null : selectedTime,
+                value: selectedTime.isEmpty ? null : selectedTime,
                 decoration: const InputDecoration(border: OutlineInputBorder()),
                 hint: const Text('--- Select ---'),
                 items: activity.timeSlots

@@ -164,7 +164,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
               // Gender
               DropdownButtonFormField<String>(
-                initialValue: selectedGender,
+                value: selectedGender,
                 decoration: _dropdownDecoration("Gender"),
                 items: const [
                   DropdownMenuItem(value: "Male", child: Text("Male")),
@@ -179,7 +179,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
               // Nationality
               DropdownButtonFormField<String>(
-                initialValue: selectedNationality,
+                value: selectedNationality,
                 decoration: _dropdownDecoration("Nationality"),
                 items: nationalityOptions
                     .map((nat) => DropdownMenuItem(value: nat, child: Text(nat)))
