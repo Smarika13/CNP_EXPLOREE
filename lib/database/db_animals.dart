@@ -9,11 +9,11 @@ class Animal {
   final String id;
   final String name;
   final String status;
-  final String mainImg;
-  final List<String> moreImg;
+  final String mainImg;      // Synchronized naming
+  final List<String> moreImg; // Synchronized naming
   final String description;
-  final String? category; // Added for filtering consistency
-  final String? diet;     // Added for filtering consistency
+  final String category;
+  final String diet;
 
   Animal({
     required this.id,
@@ -22,8 +22,8 @@ class Animal {
     required this.mainImg,
     required this.moreImg,
     required this.description,
-    this.category,
-    this.diet,
+    required this.category,
+    required this.diet,
   });
 
   factory Animal.fromFirestore(Map<String, dynamic> data, String docId) {
@@ -31,11 +31,12 @@ class Animal {
       id: docId,
       name: data['name'] ?? 'Unknown Species',
       status: data['status'] ?? 'Vulnerable',
-      mainImg: data['Mainimg'] ?? '',
-      moreImg: List<String>.from(data['Moreimg'] ?? []),
+      // Using 'mainImg' to match the Node.js seeder and common JS standards
+      mainImg: data['mainImg'] ?? '', 
+      moreImg: List<String>.from(data['moreImg'] ?? []),
       description: data['descriptions'] ?? 'No description available.',
-      category: data['category'],
-      diet: data['diet'],
+      category: data['category'] ?? 'Mammal',
+      diet: data['diet'] ?? 'Unknown',
     );
   }
 }
@@ -69,7 +70,7 @@ class AnimalQueryService {
       final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       final String folderName = name.toLowerCase().replaceAll(' ', '_');
 
-      // 1. Start all uploads in parallel for speed
+      // 1. Parallel uploads
       Future<String> mainImgTask = _uploadFile(
         mainImageFile, 
         'animals/$folderName/${folderName}_main_$timestamp.jpg'
@@ -82,45 +83,31 @@ class AnimalQueryService {
         );
       }).toList();
 
-      // 2. Wait for all links to return
       String mainImgUrl = await mainImgTask;
       List<String> moreImgUrls = await Future.wait(galleryTasks);
 
-      // 3. Save reference to Firestore
+      // 3. Save to Firestore (Synchronized keys)
       await _db.collection('animals').add({
         'name': name,
         'status': status,
         'descriptions': description,
         'category': category,
         'diet': diet,
-        'Mainimg': mainImgUrl,
-        'Moreimg': moreImgUrls,
+        'mainImg': mainImgUrl, // camelCase
+        'moreImg': moreImgUrls, // camelCase
         'createdAt': FieldValue.serverTimestamp(),
       });
-      
-      print("Upload complete!");
     } catch (e) {
-      print("Upload Error: $e");
       rethrow;
     }
   }
 
   // --- FEATURE: REAL-TIME ANIMAL STREAM ---
-  Stream<List<Animal>> streamAnimals({
-    String? category,
-    String? status,
-    String? diet,
-  }) {
-    Query query = _db.collection('animals');
+  Stream<List<Animal>> streamAnimals({String? category}) {
+    Query query = _db.collection('animals').orderBy('createdAt', descending: true);
 
     if (category != null && category.isNotEmpty) {
       query = query.where('category', isEqualTo: category);
-    }
-    if (status != null && status.isNotEmpty) {
-      query = query.where('status', isEqualTo: status);
-    }
-    if (diet != null && diet.isNotEmpty) {
-      query = query.where('diet', isEqualTo: diet);
     }
 
     return query.snapshots().map((snapshot) {
@@ -128,26 +115,5 @@ class AnimalQueryService {
         return Animal.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
     });
-  }
-
-  // --- FEATURE: BOOKING ---
-  Future<String?> createRideBooking({
-    required String animalId,
-    required String userId,
-    required double price,
-  }) async {
-    try {
-      DocumentReference ref = await _db.collection('bookings').add({
-        'animalId': animalId,
-        'userId': userId,
-        'amount': price,
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      return ref.id;
-    } catch (e) {
-      print("Booking Error: $e");
-      return null;
-    }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -15,8 +16,10 @@ class _AuthPageState extends State<AuthPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
 
-  bool _isLogin = true; // State to toggle between Login and Sign Up
+  bool _isLogin = true;
   bool _obscurePassword = true;
   bool _isLoading = false;
 
@@ -24,6 +27,8 @@ class _AuthPageState extends State<AuthPage> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     super.dispose();
   }
 
@@ -43,43 +48,75 @@ class _AuthPageState extends State<AuthPage> {
     } else {
       error = await service.signUp(email, password);
 
-      // Send verification email on successful sign up
       if (error == null) {
         try {
           final user = FirebaseAuth.instance.currentUser;
+
+          final firstName = _firstNameController.text.trim();
+          final lastName = _lastNameController.text.trim();
+          final fullName = '$firstName $lastName';
+
+          // Update display name in Firebase Auth
+          await user?.updateDisplayName(fullName);
+
+          // Send verification email
           await user?.sendEmailVerification();
-        } catch (_) {
-          // Ignore verification errors in UI flow
+
+          // Save to Firestore
+          if (user != null) {
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .set({
+              'uid': user.uid,
+              'email': email,
+              'firstName': firstName,
+              'lastName': lastName,
+              'fullName': fullName,
+              'role': 'user',
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Profile save failed: $e'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
         }
       }
     }
 
     if (!mounted) return;
-
     setState(() => _isLoading = false);
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
+        SnackBar(content: Text(error), backgroundColor: Colors.red),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _isLogin
-                ? 'Login successful'
-                : 'Sign up successful. Check your email for a verification link.',
-          ),
-        ),
-      );
-      // AuthWrapper listens to authStateChanges and will route to HomePage automatically.
+      return;
     }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isLogin
+              ? 'Login successful!'
+              : 'Account created! Check your email for a verification link.',
+        ),
+        backgroundColor: Colors.green,
+      ),
+    );
+    // AuthWrapper listening to authStateChanges will automatically route to HomePage
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF2E2E2E), // Dark background from original
+      backgroundColor: const Color(0xFF2E2E2E),
       body: Center(
         child: SingleChildScrollView(
           child: Column(
@@ -92,7 +129,7 @@ class _AuthPageState extends State<AuthPage> {
               ),
               const SizedBox(height: 20),
 
-              // White Card Container
+              // White Card
               Container(
                 width: 330,
                 padding: const EdgeInsets.all(20),
@@ -113,21 +150,47 @@ class _AuthPageState extends State<AuthPage> {
                       ),
                       const SizedBox(height: 20),
 
-                      // email Field
+                      // First Name + Last Name (sign up only)
+                      if (!_isLogin) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _firstNameController,
+                                textCapitalization: TextCapitalization.words,
+                                decoration: _inputDecoration('First Name', Icons.person),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Required';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _lastNameController,
+                                textCapitalization: TextCapitalization.words,
+                                decoration: _inputDecoration('Last Name', Icons.person_outline),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Required';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 15),
+                      ],
+
+                      // Email
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          labelText: ' Email',
-                          hintText: 'name@gmail.com',
-                          prefixIcon: const Icon(Icons.email),
-                          filled: true,
-                          fillColor: const Color(0xFFEFF5EB),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
+                        decoration: _inputDecoration('Email', Icons.email),
                         validator: (value) {
                           if (value == null || value.isEmpty) return 'Enter email';
                           if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
@@ -138,22 +201,17 @@ class _AuthPageState extends State<AuthPage> {
                       ),
                       const SizedBox(height: 15),
 
-                      // Password Field
+                      // Password
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock),
+                        decoration: _inputDecoration('Password', Icons.lock).copyWith(
                           suffixIcon: IconButton(
-                            icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                          ),
-                          filled: true,
-                          fillColor: const Color(0xFFEFF5EB),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscurePassword = !_obscurePassword),
                           ),
                         ),
                         validator: (value) {
@@ -163,7 +221,7 @@ class _AuthPageState extends State<AuthPage> {
                         },
                       ),
 
-                      // Forgot Password (only visible in Login mode)
+                      // Forgot Password (login only)
                       if (_isLogin)
                         Align(
                           alignment: Alignment.centerRight,
@@ -171,19 +229,24 @@ class _AuthPageState extends State<AuthPage> {
                             onPressed: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) =>  ForgotPasswordPage()),
+                                MaterialPageRoute(
+                                  builder: (context) => ForgotPasswordPage(),
+                                ),
                               );
                             },
                             child: const Text(
                               "Forgot Password?",
-                              style: TextStyle(color: Colors.green, decoration: TextDecoration.underline),
+                              style: TextStyle(
+                                color: Colors.green,
+                                decoration: TextDecoration.underline,
+                              ),
                             ),
                           ),
                         ),
 
                       const SizedBox(height: 10),
 
-                      // Main Action Button
+                      // Submit Button
                       SizedBox(
                         width: double.infinity,
                         height: 45,
@@ -191,7 +254,9 @@ class _AuthPageState extends State<AuthPage> {
                           onPressed: _isLoading ? null : _handleSubmit,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF7CFF4E),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
                           ),
                           child: _isLoading
                               ? const SizedBox(
@@ -199,7 +264,8 @@ class _AuthPageState extends State<AuthPage> {
                                   height: 22,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.5,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                    valueColor:
+                                        AlwaysStoppedAnimation<Color>(Colors.black),
                                   ),
                                 )
                               : Text(
@@ -214,13 +280,24 @@ class _AuthPageState extends State<AuthPage> {
 
                       const SizedBox(height: 15),
 
-                      // Toggle between Login and Sign Up
+                      // Toggle Login / Sign Up
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(_isLogin ? "Don’t have an account? " : "Already have an account? "),
+                          Text(
+                            _isLogin
+                                ? "Don't have an account? "
+                                : "Already have an account? ",
+                          ),
                           GestureDetector(
-                            onTap: () => setState(() => _isLogin = !_isLogin),
+                            onTap: () => setState(() {
+                              _isLogin = !_isLogin;
+                              _formKey.currentState?.reset();
+                              _firstNameController.clear();
+                              _lastNameController.clear();
+                              _emailController.clear();
+                              _passwordController.clear();
+                            }),
                             child: Text(
                               _isLogin ? "Sign Up" : "Login",
                               style: const TextStyle(
@@ -239,6 +316,19 @@ class _AuthPageState extends State<AuthPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon),
+      filled: true,
+      fillColor: const Color(0xFFEFF5EB),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
       ),
     );
   }
