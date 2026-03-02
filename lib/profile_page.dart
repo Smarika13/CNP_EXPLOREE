@@ -14,14 +14,16 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get the current logged-in user's ID
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       return const Scaffold(
-        body: Center(child: Text('Not logged in.')),
+        body: Center(child: Text('No user logged in.')),
       );
     }
 
+    // This StreamBuilder listens to the 'users' collection in Firestore
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
@@ -34,8 +36,16 @@ class ProfilePage extends StatelessWidget {
           );
         }
 
-        // Pull Firestore fields with fallbacks to Auth fields
+        if (snapshot.hasError) {
+          return const Scaffold(
+            body: Center(child: Text('Error loading profile')),
+          );
+        }
+
+        // Pull REAL data from Firestore
         final data = snapshot.data?.data() as Map<String, dynamic>? ?? {};
+        
+        // Use the name from Firebase, fallback to Auth name, then 'User'
         final String fullName    = data['fullName']    ?? user.displayName ?? 'User';
         final String email       = data['email']       ?? user.email ?? '';
         final String dob         = data['dob']         ?? '';
@@ -86,7 +96,7 @@ class _ProfileBody extends StatelessWidget {
           children: [
             const SizedBox(height: 16),
 
-            // User Card
+            // User Card showing Real Firebase Data
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Card(
@@ -101,18 +111,18 @@ class _ProfileBody extends StatelessWidget {
                     child: Icon(Icons.person, color: Colors.white, size: 32),
                   ),
                   title: Text(
-                    fullName,
+                    fullName, // Real name from Firebase
                     style: const TextStyle(
                         fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                  subtitle: Text(email),
+                  subtitle: Text(email), // Real email from Firebase/Auth
                 ),
               ),
             ),
 
             const SizedBox(height: 24),
 
-            // Profile options
+            // Profile Options
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Column(
@@ -183,7 +193,6 @@ class _ProfileBody extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
           ],
         ),

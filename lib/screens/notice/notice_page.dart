@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
 import 'package:flutter/material.dart';
 
 class NoticePage extends StatelessWidget {
@@ -5,7 +6,6 @@ class NoticePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Defining the color as a constant for easy maintenance
     const primaryGreen = Color(0xFF1B5E20);
 
     return DefaultTabController(
@@ -47,7 +47,7 @@ class NoticePage extends StatelessWidget {
             Expanded(
               child: TabBarView(
                 children: [
-                  // Notifications Tab
+                  // --- 1. Notifications Tab (Still Static/Dummy) ---
                   ListView(
                     padding: const EdgeInsets.all(16),
                     children: const [
@@ -68,25 +68,45 @@ class NoticePage extends StatelessWidget {
                     ],
                   ),
 
-                  // News Tab
-                  ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: const [
-                      Card(
-                        child: ListTile(
-                          leading: Icon(Icons.newspaper, color: primaryGreen),
-                          title: Text("Park Entry Fee Update"),
-                          subtitle: Text("New fees effective from next week."),
-                        ),
-                      ),
-                      Card(
-                        child: ListTile(
-                          leading: Icon(Icons.newspaper, color: primaryGreen),
-                          title: Text("Safari Timings Updated"),
-                          subtitle: Text("Jeep Safari timings revised this month."),
-                        ),
-                      ),
-                    ],
+                  // --- 2. News Tab (NOW DYNAMIC FROM FIREBASE) ---
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('news') // Must match your Admin collection name
+                        .orderBy('timestamp', descending: true)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return const Center(child: Text("Error loading news"));
+                      }
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final newsDocs = snapshot.data!.docs;
+
+                      if (newsDocs.isEmpty) {
+                        return const Center(
+                          child: Text("No news updates at the moment."),
+                        );
+                      }
+
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: newsDocs.length,
+                        itemBuilder: (context, index) {
+                          final data = newsDocs[index].data() as Map<String, dynamic>;
+                          
+                          return Card(
+                            child: ListTile(
+                              leading: const Icon(Icons.newspaper, color: primaryGreen),
+                              title: Text(data['title'] ?? 'Untitled News'),
+                              subtitle: Text(data['subtitle'] ?? data['description'] ?? ''),
+                              // Optional: You can add a timestamp display here too
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
                 ],
               ),

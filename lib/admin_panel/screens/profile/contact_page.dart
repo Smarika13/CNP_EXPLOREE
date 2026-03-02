@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // 1. Import Firestore
 
 class ContactPage extends StatefulWidget {
   const ContactPage({super.key});
@@ -11,24 +12,58 @@ class _ContactPageState extends State<ContactPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _subjectController = TextEditingController(); // Added Subject
   final TextEditingController _messageController = TextEditingController();
+  
+  bool _isLoading = false; // To show a loading spinner during upload
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _subjectController.dispose();
     _messageController.dispose();
     super.dispose();
   }
 
-  void _submitForm() {
+  // 2. Updated Submit Function to connect with Firebase
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Message sent successfully!')),
-      );
-      _nameController.clear();
-      _emailController.clear();
-      _messageController.clear();
+      setState(() => _isLoading = true);
+
+      try {
+        // Sending data to the 'contact_requests' collection
+        await FirebaseFirestore.instance.collection('contact_requests').add({
+          'name': _nameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'subject': _subjectController.text.trim(),
+          'message': _messageController.text.trim(),
+          'timestamp': FieldValue.serverTimestamp(), // For admin sorting
+          'status': 'pending', 
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Message sent to Admin successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Clear all fields
+          _nameController.clear();
+          _emailController.clear();
+          _subjectController.clear();
+          _messageController.clear();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -37,7 +72,7 @@ class _ContactPageState extends State<ContactPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F5),
       appBar: AppBar(
-        title: const Text("Contact Us"),
+        title: const Text("Contact Us", style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF4FBF26),
         centerTitle: true,
       ),
@@ -59,82 +94,50 @@ class _ContactPageState extends State<ContactPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Name Field
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: "Name",
-                      prefixIcon: Icon(Icons.person, color: Color(0xFF4FBF26)),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return "Please enter your name";
-                      }
-                      final nameRegex = RegExp(r'^[a-zA-Z\s]+$');
-                      if (!nameRegex.hasMatch(value)) {
-                        return "Name can only contain letters";
-                      }
-                      return null;
-                    },
-                  ),
+                  _buildTextField(_nameController, "Name", Icons.person, (value) {
+                    if (value == null || value.isEmpty) return "Please enter your name";
+                    return null;
+                  }),
+
                   const SizedBox(height: 16),
 
-                  // Email Field
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(
-                      labelText: "Email",
-                      prefixIcon: Icon(Icons.email, color: Color(0xFF4FBF26)),
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return "Please enter your email";
-                      }
-                      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                      if (!emailRegex.hasMatch(value)) {
-                        return "Please enter a valid email";
-                      }
-                      return null;
-                    },
-                  ),
+                  _buildTextField(_emailController, "Email", Icons.email, (value) {
+                    if (value == null || value.isEmpty) return "Please enter your email";
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) return "Enter a valid email";
+                    return null;
+                  }, type: TextInputType.emailAddress),
+
                   const SizedBox(height: 16),
 
-                  // Message Field
-                  TextFormField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      labelText: "Message",
-                      prefixIcon: Icon(Icons.message, color: Color(0xFF4FBF26)),
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 5,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return "Please enter your message";
-                      }
-                      if (value.length < 10) {
-                        return "Message should be at least 10 characters";
-                      }
-                      return null;
-                    },
-                  ),
+                  // 3. Added Subject Field
+                  _buildTextField(_subjectController, "Subject (e.g. Booking, Issue)", Icons.subject, (value) {
+                    if (value == null || value.isEmpty) return "Please enter a subject";
+                    return null;
+                  }),
+
+                  const SizedBox(height: 16),
+
+                  _buildTextField(_messageController, "Message", Icons.message, (value) {
+                    if (value == null || value.isEmpty) return "Please enter your message";
+                    if (value.length < 10) return "Minimum 10 characters";
+                    return null;
+                  }, maxLines: 5),
+
                   const SizedBox(height: 24),
 
-                  // Submit Button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _submitForm,
+                      onPressed: _isLoading ? null : _submitForm, // Disable button while loading
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4FBF26),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text("Send Message", style: TextStyle(fontSize: 16)),
+                      child: _isLoading 
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text("Send Message", style: TextStyle(fontSize: 16)),
                     ),
                   ),
                 ],
@@ -143,6 +146,21 @@ class _ContactPageState extends State<ContactPage> {
           ),
         ),
       ),
+    );
+  }
+
+  // Helper widget to keep code clean
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, String? Function(String?)? validator, {TextInputType type = TextInputType.text, int maxLines = 1}) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: const Color(0xFF4FBF26)),
+        border: const OutlineInputBorder(),
+      ),
+      keyboardType: type,
+      maxLines: maxLines,
+      validator: validator,
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class EditRulesPage extends StatefulWidget {
   const EditRulesPage({super.key});
@@ -9,113 +10,47 @@ class EditRulesPage extends StatefulWidget {
 
 class _EditRulesPageState extends State<EditRulesPage> {
   final TextEditingController _controller = TextEditingController();
+  final List<String> sections = [
+    "Inside the Jungle",
+    "Safety Measures Inside Jungle",
+    "Outside the Jungle",
+    "Safety Measures Outside Jungle"
+  ];
 
-  // Structure rules as Map<String, List<String>> to keep sections
-  Map<String, List<String>> rulesSections = {
-    "Inside the Jungle": [
-      "Mandatory Guides: You are strictly prohibited from entering the jungle on foot without at least two certified nature guides. For jeep safaris, a guide is also mandatory.",
-      "Permit Required: Every visitor must have a valid daily entry permit. These are for single entry only; if you leave and come back the next day, you need a new one.",
-      "Timing: The park is open only from sunrise to sunset (roughly 6:00 AM to 5:00 PM). Staying overnight inside the core jungle is illegal.",
-      "No Trace: Carrying out plastic, littering, or removing any plants or stones is a punishable offense. Drones are strictly banned unless you have a special government permit.",
-      "Silence: Loud talking, music, or shouting is prohibited as it disturbs wildlife and can trigger aggressive behavior.",
-    ],
-    "Safety Measures Inside Jungle": [
-      "Walking Safaris: If you encounter a Rhino on foot, climb a tree or run in a zigzag pattern. If you see a Sloth Bear, stay in a tight group and make noise to scare it off. Never run from a Tiger; maintain eye contact and back away slowly.",
-      "Clothing: Wear neutral colors (khaki, olive, tan). Avoid bright colors like red, yellow, or white, which can attract or irritate animals.",
-      "Distance: Maintain at least 20–30 meters from all wildlife.",
-      "Guide Equipment: Guides carry only bamboo sticks; no firearms are allowed for tourism. Trust their expertise; they are trained to read animal 'body language'.",
-    ],
-    "Outside the Jungle": [
-      "Respect Culture: When visiting Tharu villages, dress modestly (shoulders and knees covered). Always ask for permission before taking photos of people or their homes.",
-      "Waste Management: While there are more bins here, travelers are encouraged to take non-biodegradable waste back to major cities like Bharatpur or Kathmandu.",
-      "Alcohol & Noise: Many lodges have 'quiet hours' to respect both the animals nearby and other travelers.",
-    ],
-    "Safety Measures Outside Jungle": [
-      "Night Hazards: Rhino and wild Boar frequently wander into the streets of Sauraha or Meghauli at night. Do not walk alone after dark in these areas. Use a strong flashlight if needed.",
-      "Water Safety: Do not swim or dip your hands in the Rapti or Narayani rivers. They are home to Gharials and Mugger crocodiles, which can be dangerous.",
-      "Health: The area is humid and prone to mosquitoes. Use DEET-based repellent and wear long sleeves in the evenings to prevent Dengue.",
-    ],
-  };
+  // Save or Update Rule in Firestore
+  Future<void> _saveRule(String section, {String? docId}) async {
+    if (_controller.text.trim().isEmpty) return;
 
-  void _editRule(String section, int index) {
-    _controller.text = rulesSections[section]![index];
+    final data = {
+      "section": section,
+      "text": _controller.text.trim(),
+      "timestamp": FieldValue.serverTimestamp(),
+    };
+
+    if (docId != null) {
+      await FirebaseFirestore.instance.collection('park_rules').doc(docId).update(data);
+    } else {
+      await FirebaseFirestore.instance.collection('park_rules').add(data);
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  void _showRuleDialog(String section, {String? docId, String? existingText}) {
+    _controller.text = existingText ?? "";
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Edit Rule"),
+        title: Text(docId == null ? "Add Rule to $section" : "Edit Rule"),
         content: TextField(
           controller: _controller,
-          autofocus: true,
           maxLines: 3,
-          decoration: const InputDecoration(hintText: "Enter rule text"),
+          decoration: const InputDecoration(border: OutlineInputBorder()),
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           ElevatedButton(
-            onPressed: () {
-              setState(() {
-                rulesSections[section]![index] = _controller.text;
-              });
-              Navigator.pop(context);
-            },
+            onPressed: () => _saveRule(section, docId: docId),
             child: const Text("Save"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _deleteRule(String section, int index) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Delete Rule"),
-        content: const Text("Are you sure you want to delete this rule?"),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                rulesSections[section]!.removeAt(index);
-              });
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text("Delete"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _addRule(String section) {
-    _controller.clear();
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Add New Rule"),
-        content: TextField(
-          controller: _controller,
-          autofocus: true,
-          maxLines: 3,
-          decoration: const InputDecoration(hintText: "Enter rule text"),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                rulesSections[section]!.add(_controller.text);
-              });
-              Navigator.pop(context);
-            },
-            child: const Text("Add"),
           ),
         ],
       ),
@@ -125,70 +60,53 @@ class _EditRulesPageState extends State<EditRulesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Edit Rules"),
-        backgroundColor: const Color(0xFF4FBF26),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: rulesSections.entries.map((entry) {
-          final section = entry.key;
-          final rules = entry.value;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+      appBar: AppBar(title: const Text("Edit Rules"), backgroundColor: const Color(0xFF4FBF26)),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('park_rules').orderBy('timestamp').snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
+          // Grouping rules by section locally for display
+          Map<String, List<QueryDocumentSnapshot>> groupedRules = {};
+          for (var sec in sections) {
+            groupedRules[sec] = snapshot.data!.docs.where((d) => d['section'] == sec).toList();
+          }
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: sections.map((section) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      section,
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: section.contains("Safety")
-                              ? Colors.redAccent
-                              : Colors.green),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(section, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, 
+                          color: section.contains("Safety") ? Colors.redAccent : Colors.green)),
+                      IconButton(icon: const Icon(Icons.add_circle, color: Colors.blue), 
+                          onPressed: () => _showRuleDialog(section)),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.add, color: Colors.blue),
-                    onPressed: () => _addRule(section),
-                    tooltip: "Add Rule",
-                  )
+                  ...groupedRules[section]!.map((doc) => Card(
+                    child: ListTile(
+                      title: Text(doc['text']),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(icon: const Icon(Icons.edit, size: 20), 
+                              onPressed: () => _showRuleDialog(section, docId: doc.id, existingText: doc['text'])),
+                          IconButton(icon: const Icon(Icons.delete, color: Colors.red, size: 20), 
+                              onPressed: () => FirebaseFirestore.instance.collection('park_rules').doc(doc.id).delete()),
+                        ],
+                      ),
+                    ),
+                  )),
+                  const Divider(height: 30),
                 ],
-              ),
-              const SizedBox(height: 8),
-              ...rules.asMap().entries.map((r) {
-                final index = r.key;
-                final text = r.value;
-                return Card(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  elevation: 3,
-                  shadowColor: Colors.black26,
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  child: ListTile(
-                    title: Text(text, style: const TextStyle(fontSize: 16)),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => _editRule(section, index),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteRule(section, index),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-              const SizedBox(height: 16),
-            ],
+              );
+            }).toList(),
           );
-        }).toList(),
+        },
       ),
     );
   }

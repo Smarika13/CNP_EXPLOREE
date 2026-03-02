@@ -23,7 +23,7 @@ class _AdminPageState extends State<AdminPage> {
   // List of sub-pages for the bottom navigation
   final List<Widget> _pages = [
     const DashboardPage(),
-    const BookingsPage(),
+    const AdminBookingsPage(),
     const UsersPage(),
     const ActivitiesPage(),
     ReportsPage(),
