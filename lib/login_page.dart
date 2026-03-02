@@ -23,9 +23,6 @@ class _LoginPageState extends State<LoginPage> {
 
   void _login() {
     if (_formKey.currentState!.validate()) {
-      String phone = _phoneController.text.trim();
-      String password = _passwordController.text.trim();
-
       // TODO: Connect backend / Firebase / API here
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Login Successful')),
@@ -52,10 +49,10 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Green circular leaf icon
-                  CircleAvatar(
+                  const CircleAvatar(
                     radius: 32,
                     backgroundColor: Colors.green,
-                    child: const Icon(Icons.eco, color: Colors.white, size: 32),
+                    child: Icon(Icons.eco, color: Colors.white, size: 32),
                   ),
                   const SizedBox(height: 16),
 

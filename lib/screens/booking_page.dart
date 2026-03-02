@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; 
-import 'package:firebase_auth/firebase_auth.dart'; // Import added for User ID
+import 'package:firebase_auth/firebase_auth.dart';
 import 'payment_page.dart';
 
 class ActivityInfo {
@@ -107,20 +107,21 @@ class _BookingPageState extends State<BookingPage> {
     return total;
   }
 
-  // UPDATED: Logic to capture the current user's UID
   Future<void> _saveToFirebase(int total) async {
     setState(() => isSaving = true);
     try {
-      // 1. Get the current user from Firebase Auth
       final User? user = FirebaseAuth.instance.currentUser;
       
       if (user == null) {
         throw Exception("No user logged in. Please sign in to book.");
       }
 
-      // 2. Add the 'userId' field to the document
+      // Logic to fetch the Name for the Admin Portal
+      String nameToSave = user.displayName ?? user.email?.split('@')[0] ?? "Guest User";
+
       await FirebaseFirestore.instance.collection('bookings').add({
-        'userId': user.uid, // This links the booking to this specific user
+        'userId': user.uid,
+        'userName': nameToSave, // <--- Name added here
         'activities': widget.activityList,
         'date': selectedDate != null ? DateFormat('yyyy-MM-dd').format(selectedDate!) : "",
         'time': selectedTime,
@@ -178,10 +179,20 @@ class _BookingPageState extends State<BookingPage> {
     );
   }
 
-  // ... (All UI helper methods: _buildBookingForm, _buildReview, _counterRow, etc.)
-  // Note: These remain the same as your previous code to maintain your UI.
-  
   Widget _buildBookingForm(int total) {
+    int unitPriceDomestic = 0;
+    int unitPriceSaarc = 0;
+    int unitPriceTourist = 0;
+
+    for (var actName in widget.activityList) {
+      final info = activityData[actName];
+      if (info != null) {
+        unitPriceDomestic += info.domestic;
+        unitPriceSaarc += info.saarc;
+        unitPriceTourist += info.tourist;
+      }
+    }
+
     return ListView(
       children: [
         Container(
@@ -264,9 +275,24 @@ class _BookingPageState extends State<BookingPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text("Visitors", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              _counterRow("Domestic (Nepal)", domesticCount, () => setState(() => domesticCount++), () => setState(() => domesticCount--)),
-              _counterRow("SAARC Countries", saarcCount, () => setState(() => saarcCount++), () => setState(() => saarcCount--)),
-              _counterRow("Other Tourists", touristCount, () => setState(() => touristCount++), () => setState(() => touristCount--)),
+              _counterRow(
+                  "Domestic (Nepal)", 
+                  "Rs. $unitPriceDomestic/person", 
+                  domesticCount, 
+                  () => setState(() => domesticCount++), 
+                  () => setState(() => domesticCount--)),
+              _counterRow(
+                  "SAARC Countries", 
+                  "Rs. $unitPriceSaarc/person", 
+                  saarcCount, 
+                  () => setState(() => saarcCount++), 
+                  () => setState(() => saarcCount--)),
+              _counterRow(
+                  "Other Tourists", 
+                  "Rs. $unitPriceTourist/person", 
+                  touristCount, 
+                  () => setState(() => touristCount++), 
+                  () => setState(() => touristCount--)),
             ],
           ),
         ),
@@ -340,11 +366,19 @@ class _BookingPageState extends State<BookingPage> {
     );
   }
 
-  Widget _counterRow(String label, int count, VoidCallback onAdd, VoidCallback onRemove) {
+  Widget _counterRow(String label, String priceUnit, int count, VoidCallback onAdd, VoidCallback onRemove) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label),
+              Text(priceUnit, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            ],
+          ),
+        ),
         Row(
           children: [
             IconButton(icon: const Icon(Icons.remove), onPressed: count > 0 ? onRemove : null),

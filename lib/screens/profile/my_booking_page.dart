@@ -1,107 +1,62 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // 1. Import Auth
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class MyBookingPage extends StatefulWidget {
+class MyBookingPage extends StatelessWidget {
   const MyBookingPage({super.key});
 
   @override
-  State<MyBookingPage> createState() => _MyBookingPageState();
-}
-
-class _MyBookingPageState extends State<MyBookingPage> {
-  // Logic to handle deletion/cancellation of a booking
-  void _confirmDeletion(BuildContext context, String docId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Cancel Booking?"),
-        content: const Text("Are you sure you want to remove this activity?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("No")),
-          TextButton(
-            onPressed: () async {
-              await FirebaseFirestore.instance.collection('bookings').doc(docId).delete();
-              if (mounted) Navigator.pop(context);
-              
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Booking cancelled successfully")),
-              );
-            },
-            child: const Text("Yes, Cancel", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // 2. Get current user's UID
     final String? userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("My Bookings"),
+        title: const Text("My Booking History", style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF4FBF26),
         centerTitle: true,
       ),
-      // 3. Check if user is logged in before showing the stream
       body: userId == null
-          ? const Center(child: Text("Please log in to view your bookings."))
+          ? const Center(child: Text("Please login first"))
           : StreamBuilder<QuerySnapshot>(
-              // 4. Update the stream with .where filter
               stream: FirebaseFirestore.instance
                   .collection('bookings')
-                  .where('userId', isEqualTo: userId) // Only fetch "my" bookings
-                  .orderBy('bookingDate', descending: true)
+                  .where('userId', isEqualTo: userId)
+                  .orderBy('bookingTimestamp', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  // Tip: Check your debug console for a link to create an index if this errors
-                  return Center(child: Text("Error: ${snapshot.error}"));
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+                if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
+                if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
 
                 final docs = snapshot.data!.docs;
-
-                if (docs.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      "You have no bookings yet.",
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
-                    ),
-                  );
-                }
+                if (docs.isEmpty) return const Center(child: Text("No bookings yet."));
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
-                    final doc = docs[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    final List<dynamic> activityList = data['activities'] ?? [];
-                    final String activityNames = activityList.join(', ');
-
+                    final data = docs[index].data() as Map<String, dynamic>;
+                    final String status = data['status'] ?? 'Pending';
+                    
                     return Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 3,
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      child: ListTile(
-                        title: Text(
-                          activityNames,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text(
-                          "Park: ${data['parkName']}\nStatus: ${data['status']}",
-                          style: const TextStyle(height: 1.5),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                          onPressed: () => _confirmDeletion(context, doc.id),
+                      margin: const EdgeInsets.only(bottom: 15),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(data['userName'] ?? "Me", style: const TextStyle(fontWeight: FontWeight.bold)),
+                                _statusBadge(status),
+                              ],
+                            ),
+                            const Divider(),
+                            Text("Activities: ${(data['activities'] as List).join(', ')}"),
+                            Text("Date: ${data['date']}"),
+                            Text("Time: ${data['time']}"),
+                            Text("Total: Rs. ${data['totalAmount']}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                          ],
                         ),
                       ),
                     );
@@ -109,6 +64,15 @@ class _MyBookingPageState extends State<MyBookingPage> {
                 );
               },
             ),
+    );
+  }
+
+  Widget _statusBadge(String status) {
+    Color color = status == "Confirmed" ? Colors.green : (status == "Cancelled" ? Colors.red : Colors.orange);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: color)),
+      child: Text(status, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
     );
   }
 }

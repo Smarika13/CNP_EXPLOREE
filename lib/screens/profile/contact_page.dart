@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // 1. Import Firestore
 
 class ContactPage extends StatefulWidget {
   const ContactPage({super.key});
@@ -12,6 +13,9 @@ class _ContactPageState extends State<ContactPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
+  
+  // To show a progress indicator while sending
+  bool _isSending = false;
 
   @override
   void dispose() {
@@ -21,24 +25,46 @@ class _ContactPageState extends State<ContactPage> {
     super.dispose();
   }
 
-  void _submitForm() {
+  // 2. Updated Function to send data to Firebase
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      // In a real app, you'd call your API here
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Message sent successfully!'),
-          backgroundColor: Color(0xFF4FBF26),
-        ),
-      );
-      _nameController.clear();
-      _emailController.clear();
-      _messageController.clear();
+      setState(() => _isSending = true);
+
+      try {
+        // This sends the data to your 'contact_requests' collection
+        await FirebaseFirestore.instance.collection('contact_requests').add({
+          'name': _nameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'subject': "New Inquiry", // Adding a default subject for the Admin list
+          'message': _messageController.text.trim(),
+          'timestamp': FieldValue.serverTimestamp(), // Important for sorting in Admin
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Message sent to Admin!'),
+              backgroundColor: Color(0xFF4FBF26),
+            ),
+          );
+          _nameController.clear();
+          _emailController.clear();
+          _messageController.clear();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isSending = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // We use SingleChildScrollView so the form doesn't cut off on small screens
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Card(
@@ -66,13 +92,7 @@ class _ContactPageState extends State<ContactPage> {
                     border: OutlineInputBorder(),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return "Please enter your name";
-                    }
-                    final nameRegex = RegExp(r'^[a-zA-Z\s]+$');
-                    if (!nameRegex.hasMatch(value)) {
-                      return "Name can only contain letters";
-                    }
+                    if (value == null || value.isEmpty) return "Please enter your name";
                     return null;
                   },
                 ),
@@ -88,12 +108,8 @@ class _ContactPageState extends State<ContactPage> {
                   ),
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return "Please enter your email";
-                    }
-                    final emailRegex =
-                        RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                    if (!emailRegex.hasMatch(value)) {
+                    if (value == null || value.isEmpty) return "Please enter your email";
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
                       return "Please enter a valid email";
                     }
                     return null;
@@ -111,12 +127,8 @@ class _ContactPageState extends State<ContactPage> {
                   ),
                   maxLines: 5,
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return "Please enter your message";
-                    }
-                    if (value.length < 10) {
-                      return "Message should be at least 10 characters";
-                    }
+                    if (value == null || value.isEmpty) return "Please enter your message";
+                    if (value.length < 10) return "Message should be at least 10 characters";
                     return null;
                   },
                 ),
@@ -126,16 +138,16 @@ class _ContactPageState extends State<ContactPage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _submitForm,
+                    onPressed: _isSending ? null : _submitForm, // Disable if sending
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4FBF26),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child:
-                        const Text("Send Message", style: TextStyle(fontSize: 16)),
+                    child: _isSending 
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text("Send Message", style: TextStyle(fontSize: 16)),
                   ),
                 ),
               ],

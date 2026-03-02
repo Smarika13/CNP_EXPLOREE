@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../auth_service.dart'; // [cite: 504]
 
 class LogoutPage extends StatelessWidget {
   const LogoutPage({super.key});
@@ -41,11 +42,20 @@ class LogoutPage extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Yes Button
+                    // --- YES BUTTON ---
                     ElevatedButton(
-                      onPressed: () {
-                        // TODO: Add your logout logic here
-                        Navigator.pop(context); // For now, just go back
+                      onPressed: () async {
+                        // 1. Call the logout logic from your AuthService 
+                        await AuthService().logOut();
+
+                        // 2. Clear all previous routes and go to the root ('/')
+                        // This triggers AuthWrapper to show the AuthPage (Login) 
+                        if (context.mounted) {
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                            '/', 
+                            (route) => false,
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4FBF26),
@@ -58,10 +68,10 @@ class LogoutPage extends StatelessWidget {
                       child: const Text("Yes"),
                     ),
                     const SizedBox(width: 16),
-                    // No Button
+                    // --- NO BUTTON ---
                     ElevatedButton(
                       onPressed: () {
-                        Navigator.pop(context);
+                        Navigator.pop(context); // Simply closes the logout screen
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.grey.shade400,
