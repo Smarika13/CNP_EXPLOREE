@@ -21,6 +21,45 @@ class FirebaseService {
     } catch (e) {
       print("Seeding Error: $e");
     }
+    await seedGuides();
+  }
+
+  // 2. SEED GUIDES: Populates the "guides" collection (runs once, skips existing)
+  Future<void> seedGuides() async {
+    try {
+      final existing = await _db.collection('guides').limit(1).get();
+      if (existing.docs.isNotEmpty) return; // already seeded
+
+      final List<Map<String, dynamic>> guides = [
+        // Jeep Safari + Jungle Walk specialists
+        {'name': 'Ram Bahadur Tharu',    'phone': '9845001001', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Jeep Safari', 'Jungle Walk']},
+        {'name': 'Sita Kumari Chaudhary','phone': '9845001002', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Jeep Safari', 'Jungle Walk']},
+        {'name': 'Hari Prasad Gurung',   'phone': '9845001003', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Jeep Safari', 'Bird Watching']},
+        {'name': 'Kamala Devi Tamang',   'phone': '9845001004', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Jeep Safari', 'Canoe Ride']},
+        {'name': 'Bikram Singh Magar',   'phone': '9845001005', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Jeep Safari', 'Canoe Ride']},
+        // Canoe Ride specialists
+        {'name': 'Sunita Rai',           'phone': '9845001006', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Canoe Ride', 'Bird Watching']},
+        {'name': 'Deepak Adhikari',      'phone': '9845001007', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Canoe Ride', 'Jungle Walk']},
+        // Elephant Safari specialists (mahout guides)
+        {'name': 'Gopal Praja',          'phone': '9845001008', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Elephant Safari']},
+        {'name': 'Sarita Praja',         'phone': '9845001009', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Elephant Safari']},
+        {'name': 'Mohan Chepang',        'phone': '9845001010', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Elephant Safari']},
+        // Bird Watching + Jungle Walk specialists
+        {'name': 'Anita Shrestha',       'phone': '9845001011', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Bird Watching', 'Jungle Walk']},
+        {'name': 'Prakash Oli',          'phone': '9845001012', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Bird Watching', 'Jungle Walk']},
+        {'name': 'Puja Karki',           'phone': '9845001013', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Bird Watching', 'Jungle Walk']},
+        // Multi-activity guides
+        {'name': 'Nabin Lama',           'phone': '9845001014', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Jeep Safari', 'Bird Watching', 'Jungle Walk']},
+        {'name': 'Rekha Bista',          'phone': '9845001015', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Canoe Ride', 'Bird Watching', 'Jungle Walk']},
+      ];
+
+      for (var guide in guides) {
+        await _db.collection('guides').add(guide);
+      }
+      print("Database Setup: Guides seeded successfully!");
+    } catch (e) {
+      print("Seeding Error (guides): $e");
+    }
   }
 
   // 2. CREATE: Saves a new booking from the Explore Page

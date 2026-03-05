@@ -5,6 +5,7 @@ import 'contact_requests_page.dart';
 import 'booking_detail_page.dart';
 import 'edit_rules_page.dart';
 import 'publish_news_page.dart';
+import 'guide_slots_page.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -123,6 +124,17 @@ class DashboardPage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           ..._recentBookings(context),
+
+          const SizedBox(height: 16),
+
+          // ===== Guide Assignments Card =====
+          _navCard(
+            context,
+            "Guide Assignments",
+            const Color(0xFFE8F5E9),
+            const GuideSlotsPage(),
+            icon: Icons.badge_outlined,
+          ),
 
           const SizedBox(height: 16),
 

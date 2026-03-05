@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'payment_page.dart';
+import '../shared/services/guide_scheduler_service.dart';
 
 class ActivityInfo {
   final String name;
@@ -119,9 +120,9 @@ class _BookingPageState extends State<BookingPage> {
       // Logic to fetch the Name for the Admin Portal
       String nameToSave = user.displayName ?? user.email?.split('@')[0] ?? "Guest User";
 
-      await FirebaseFirestore.instance.collection('bookings').add({
+      final docRef = await FirebaseFirestore.instance.collection('bookings').add({
         'userId': user.uid,
-        'userName': nameToSave, // <--- Name added here
+        'userName': nameToSave,
         'activities': widget.activityList,
         'date': selectedDate != null ? DateFormat('yyyy-MM-dd').format(selectedDate!) : "",
         'time': selectedTime,
@@ -134,7 +135,17 @@ class _BookingPageState extends State<BookingPage> {
         'status': 'Pending',
         'bookingTimestamp': FieldValue.serverTimestamp(),
       });
-      
+
+      // Auto-assign guides for this booking
+      final groupSize = domesticCount + saarcCount + touristCount;
+      await GuideSchedulerService().assignGuidesForBooking(
+        bookingId: docRef.id,
+        activities: widget.activityList,
+        date: DateFormat('yyyy-MM-dd').format(selectedDate!),
+        timeSlot: selectedTime,
+        groupSize: groupSize,
+      );
+
       if (mounted) {
         Navigator.push(
           context,
