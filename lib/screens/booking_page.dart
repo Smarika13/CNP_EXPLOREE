@@ -163,8 +163,44 @@ class _BookingPageState extends State<BookingPage> {
     }
   }
 
+  /// Parses the START hour from slot strings like:
+  /// "6–10 AM" → 6,  "2–5 PM" → 14,  "10:00 AM - 10:30 AM" → 10,  "7–8 PM" → 19
+  int _slotStartHour(String slot) {
+    try {
+      // Format: "10:00 AM - 10:30 AM"
+      if (slot.contains(':')) {
+        final parts = slot.split(RegExp(r'\s*-\s*'));
+        final timePart = parts.first.trim(); // "10:00 AM"
+        final isPm = timePart.toUpperCase().contains('PM');
+        final hour = int.parse(timePart.split(':').first.replaceAll(RegExp(r'[^0-9]'), ''));
+        if (isPm && hour != 12) return hour + 12;
+        if (!isPm && hour == 12) return 0;
+        return hour;
+      }
+      // Format: "6–10 AM" or "2–5 PM"
+      final isPm = slot.toUpperCase().contains('PM');
+      final hour = int.parse(slot.replaceAll(RegExp(r'[^0-9].*'), '').trim());
+      if (isPm && hour != 12) return hour + 12;
+      if (!isPm && hour == 12) return 0;
+      return hour;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   List<String> getAvailableTimeSlots() {
-    return activityData[widget.activityName]?.timeSlots ?? [];
+    final all = activityData[widget.activityName]?.timeSlots ?? [];
+    if (selectedDate == null) return all;
+
+    final now = DateTime.now();
+    final isToday = selectedDate!.year == now.year &&
+        selectedDate!.month == now.month &&
+        selectedDate!.day == now.day;
+
+    if (!isToday) return all;
+
+    // For today: only show slots whose start time is still in the future
+    return all.where((slot) => _slotStartHour(slot) > now.hour).toList();
   }
 
   @override
@@ -410,6 +446,9 @@ class _BookingPageState extends State<BookingPage> {
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
-    if (picked != null) setState(() => selectedDate = picked);
+    if (picked != null) setState(() {
+      selectedDate = picked;
+      selectedTime = ''; // reset time when date changes
+    });
   }
 }
