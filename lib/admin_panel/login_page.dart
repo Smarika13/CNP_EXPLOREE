@@ -165,7 +165,6 @@ class _LoginPageState extends State<LoginPage> {
                           onPressed: () {
                             if (_formKey.currentState!.validate()) {
                               print("Contact: ${phoneController.text}");
-                              print("Password: ${passwordController.text}");
                             }
                           },
                           style: ElevatedButton.styleFrom(
