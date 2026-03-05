@@ -82,8 +82,8 @@ final Map<String, ActivityInfo> activityData = {
 };
 
 class BookingPage extends StatefulWidget {
-  final List<String> activityList;
-  const BookingPage({super.key, required this.activityList});
+  final String activityName;
+  const BookingPage({super.key, required this.activityName});
 
   @override
   State<BookingPage> createState() => _BookingPageState();
@@ -93,19 +93,14 @@ class _BookingPageState extends State<BookingPage> {
   String selectedTime = "";
   DateTime? selectedDate;
   int domesticCount = 0, saarcCount = 0, touristCount = 0;
-  bool showReview = false, isSaving = false; 
+  bool showReview = false, isSaving = false;
 
   int calculateGrandTotal() {
-    int total = 0;
-    for (var actName in widget.activityList) {
-      final info = activityData[actName];
-      if (info != null) {
-        total += (domesticCount * info.domestic) +
-                 (saarcCount * info.saarc) +
-                 (touristCount * info.tourist);
-      }
-    }
-    return total;
+    final info = activityData[widget.activityName];
+    if (info == null) return 0;
+    return (domesticCount * info.domestic) +
+           (saarcCount * info.saarc) +
+           (touristCount * info.tourist);
   }
 
   Future<void> _saveToFirebase(int total) async {
@@ -123,7 +118,7 @@ class _BookingPageState extends State<BookingPage> {
       final docRef = await FirebaseFirestore.instance.collection('bookings').add({
         'userId': user.uid,
         'userName': nameToSave,
-        'activities': widget.activityList,
+        'activity': widget.activityName,
         'date': selectedDate != null ? DateFormat('yyyy-MM-dd').format(selectedDate!) : "",
         'time': selectedTime,
         'visitorCounts': {
@@ -136,11 +131,11 @@ class _BookingPageState extends State<BookingPage> {
         'bookingTimestamp': FieldValue.serverTimestamp(),
       });
 
-      // Auto-assign guides for this booking
+      // Auto-assign guide for this booking
       final groupSize = domesticCount + saarcCount + touristCount;
       await GuideSchedulerService().assignGuidesForBooking(
         bookingId: docRef.id,
-        activities: widget.activityList,
+        activities: [widget.activityName],
         date: DateFormat('yyyy-MM-dd').format(selectedDate!),
         timeSlot: selectedTime,
         groupSize: groupSize,
@@ -151,7 +146,7 @@ class _BookingPageState extends State<BookingPage> {
           context,
           MaterialPageRoute(
             builder: (context) => PaymentPage(
-              activityName: widget.activityList.join(", "),
+              activityName: widget.activityName,
               date: selectedDate!,
               time: selectedTime,
               totalAmount: total,
@@ -169,8 +164,7 @@ class _BookingPageState extends State<BookingPage> {
   }
 
   List<String> getAvailableTimeSlots() {
-    if (widget.activityList.isEmpty) return [];
-    return activityData[widget.activityList.first]?.timeSlots ?? [];
+    return activityData[widget.activityName]?.timeSlots ?? [];
   }
 
   @override
@@ -191,18 +185,10 @@ class _BookingPageState extends State<BookingPage> {
   }
 
   Widget _buildBookingForm(int total) {
-    int unitPriceDomestic = 0;
-    int unitPriceSaarc = 0;
-    int unitPriceTourist = 0;
-
-    for (var actName in widget.activityList) {
-      final info = activityData[actName];
-      if (info != null) {
-        unitPriceDomestic += info.domestic;
-        unitPriceSaarc += info.saarc;
-        unitPriceTourist += info.tourist;
-      }
-    }
+    final info = activityData[widget.activityName];
+    final int unitPriceDomestic = info?.domestic ?? 0;
+    final int unitPriceSaarc = info?.saarc ?? 0;
+    final int unitPriceTourist = info?.tourist ?? 0;
 
     return ListView(
       children: [
@@ -212,14 +198,11 @@ class _BookingPageState extends State<BookingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Selected Activities", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text("Selected Activity", style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: widget.activityList.map((act) => Chip(
-                  label: Text(act, style: const TextStyle(fontSize: 12)),
-                  backgroundColor: Colors.green.shade100,
-                )).toList(),
+              Chip(
+                label: Text(widget.activityName, style: const TextStyle(fontSize: 12)),
+                backgroundColor: Colors.green.shade100,
               ),
             ],
           ),
@@ -341,7 +324,7 @@ class _BookingPageState extends State<BookingPage> {
       children: [
         const Text("Booking Summary", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 20),
-        _summaryRow("Activities", widget.activityList.join(", ")),
+        _summaryRow("Activity", widget.activityName),
         _summaryRow("Date", DateFormat('yyyy-MM-dd').format(selectedDate!)),
         _summaryRow("Time", selectedTime),
         const Divider(height: 30, thickness: 1),

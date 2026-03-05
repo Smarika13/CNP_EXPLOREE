@@ -17,8 +17,8 @@ class _DashboardPageState extends State<DashboardPage> {
   int _currentPage = 0;
   Timer? _autoSlideTimer;
   
-  // List to track multiple selected activities
-  final List<String> _selectedActivities = [];
+  // Single selected activity (one booking at a time)
+  String? _selectedActivity;
 
   final List<String> sliderImages = [
     "assets/images/cnp image.jpg",
@@ -173,22 +173,16 @@ class _DashboardPageState extends State<DashboardPage> {
             (context, index) {
               final data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
               final name = data['name'] ?? 'Activity';
-              final bool isSelected = _selectedActivities.contains(name);
-
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                height: 85, 
+                height: 85,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(15),
                   boxShadow: [
                     BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
                   ],
-                  border: Border.all(
-                    color: isSelected ? const Color(0xFF1B5E20) : Colors.transparent, 
-                    width: 1.5
-                  ),
                 ),
                 child: Row(
                   children: [
@@ -209,20 +203,22 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                     Padding(
                       padding: const EdgeInsets.only(right: 12),
-                      child: isSelected 
-                        ? IconButton(
-                            icon: const Icon(Icons.check_circle, color: Color(0xFF1B5E20), size: 32),
-                            onPressed: () => setState(() => _selectedActivities.remove(name)),
-                          )
-                        : TextButton(
-                            onPressed: () => setState(() => _selectedActivities.add(name)),
-                            style: TextButton.styleFrom(
-                              backgroundColor: const Color(0xFF1B5E20).withOpacity(0.1),
-                              minimumSize: const Size(65, 34),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      child: TextButton(
+                        onPressed: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => BookingPage(activityName: name),
                             ),
-                            child: const Text("Book", style: TextStyle(color: Color(0xFF1B5E20), fontWeight: FontWeight.bold)),
-                          ),
+                          );
+                        },
+                        style: TextButton.styleFrom(
+                          backgroundColor: const Color(0xFF1B5E20).withOpacity(0.1),
+                          minimumSize: const Size(65, 34),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text("Book", style: TextStyle(color: Color(0xFF1B5E20), fontWeight: FontWeight.bold)),
+                      ),
                     ),
                   ],
                 ),
@@ -243,39 +239,6 @@ class _DashboardPageState extends State<DashboardPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          if (_selectedActivities.isNotEmpty)
-            Expanded(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 400),
-                height: 55,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF1B5E20), Color(0xFF1B5E20)]),
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [BoxShadow(color: const Color(0xFF1B5E20).withOpacity(0.3), blurRadius: 10)],
-                ),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                  // FIX: Added async/await and clear()
-                  onPressed: () async {
-                    await Navigator.push(
-                      context, 
-                      MaterialPageRoute(
-                        builder: (context) => BookingPage(activityList: _selectedActivities)
-                      )
-                    );
-                    
-                    // This executes when the user returns from the BookingPage
-                    setState(() {
-                      _selectedActivities.clear();
-                    });
-                  },
-                  child: Text("CONFIRM ${_selectedActivities.length}", 
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                ),
-              ),
-            ),
-
           Container(
             height: 55, width: 55,
             decoration: BoxDecoration(
