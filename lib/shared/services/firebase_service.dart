@@ -31,26 +31,21 @@ class FirebaseService {
       if (existing.docs.isNotEmpty) return; // already seeded
 
       final List<Map<String, dynamic>> guides = [
-        // Jeep Safari + Jungle Walk specialists
-        {'name': 'Ram Bahadur Tharu',    'phone': '9845001001', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Jeep Safari', 'Jungle Walk']},
-        {'name': 'Sita Kumari Chaudhary','phone': '9845001002', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Jeep Safari', 'Jungle Walk']},
-        {'name': 'Hari Prasad Gurung',   'phone': '9845001003', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Jeep Safari', 'Bird Watching']},
-        {'name': 'Kamala Devi Tamang',   'phone': '9845001004', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Jeep Safari', 'Canoe Ride']},
-        {'name': 'Bikram Singh Magar',   'phone': '9845001005', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Jeep Safari', 'Canoe Ride']},
-        // Canoe Ride specialists
-        {'name': 'Sunita Rai',           'phone': '9845001006', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Canoe Ride', 'Bird Watching']},
-        {'name': 'Deepak Adhikari',      'phone': '9845001007', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Canoe Ride', 'Jungle Walk']},
-        // Elephant Safari specialists (mahout guides)
-        {'name': 'Gopal Praja',          'phone': '9845001008', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Elephant Safari']},
-        {'name': 'Sarita Praja',         'phone': '9845001009', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Elephant Safari']},
-        {'name': 'Mohan Chepang',        'phone': '9845001010', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Elephant Safari']},
-        // Bird Watching + Jungle Walk specialists
-        {'name': 'Anita Shrestha',       'phone': '9845001011', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Bird Watching', 'Jungle Walk']},
-        {'name': 'Prakash Oli',          'phone': '9845001012', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Bird Watching', 'Jungle Walk']},
-        {'name': 'Puja Karki',           'phone': '9845001013', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Bird Watching', 'Jungle Walk']},
-        // Multi-activity guides
-        {'name': 'Nabin Lama',           'phone': '9845001014', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Jeep Safari', 'Bird Watching', 'Jungle Walk']},
-        {'name': 'Rekha Bista',          'phone': '9845001015', 'isActive': true, 'totalAssignments': 0, 'specializations': ['Canoe Ride', 'Bird Watching', 'Jungle Walk']},
+        {'name': 'Ram Bahadur Tharu',     'phone': '9845001001', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Sita Kumari Chaudhary', 'phone': '9845001002', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Hari Prasad Gurung',    'phone': '9845001003', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Kamala Devi Tamang',    'phone': '9845001004', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Bikram Singh Magar',    'phone': '9845001005', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Sunita Rai',            'phone': '9845001006', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Deepak Adhikari',       'phone': '9845001007', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Gopal Praja',           'phone': '9845001008', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Sarita Praja',          'phone': '9845001009', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Mohan Chepang',         'phone': '9845001010', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Anita Shrestha',        'phone': '9845001011', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Prakash Oli',           'phone': '9845001012', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Puja Karki',            'phone': '9845001013', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Nabin Lama',            'phone': '9845001014', 'isActive': true, 'totalAssignments': 0},
+        {'name': 'Rekha Bista',           'phone': '9845001015', 'isActive': true, 'totalAssignments': 0},
       ];
 
       for (var guide in guides) {

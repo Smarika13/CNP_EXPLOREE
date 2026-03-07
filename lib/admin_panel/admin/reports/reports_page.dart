@@ -1,127 +1,239 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../bookings/bookings_page.dart';
 
 class ReportsPage extends StatelessWidget {
-  ReportsPage({super.key});
-
-  // ===== Sample Data =====
-  final int totalBookingsToday = 12;
-  final int totalBookingsWeek = 45;
-  final int totalBookingsMonth = 120;
-
-  final Map<String, int> bookingsPerActivity = {
-    "Jeep Safari": 40,
-    "Bird Watching": 25,
-    "Elephant Safari": 30,
-    "Jungle Walk": 15,
-    "Canoe Ride": 10,
-    "Tharu Cultural Program": 20,
-    "Tharu Museum": 10,
-  };
-
-  final Map<String, int> bookingsPerCategory = {
-    "Domestic": 80,
-    "SAARC": 50,
-    "Tourist": 40,
-  };
-
-  final int totalUsers = 150;
-  final int activeUsers = 120;
-  final int newRegistrations = 10;
-
-  final double cardHeight = 100; // standard card height
-  final double cardBorderRadius = 16;
+  const ReportsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F5),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('bookings')
+          .orderBy('bookingTimestamp', descending: true)
+          .snapshots(),
+      builder: (context, bookingSnap) {
+            final loading =
+                bookingSnap.connectionState == ConnectionState.waiting;
+
+            if (loading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final bookings = bookingSnap.data?.docs ?? [];
+
+            // Date ranges
+            final now = DateTime.now();
+            final todayStart = DateTime(now.year, now.month, now.day);
+            final weekStart = now.subtract(const Duration(days: 7));
+            final monthStart = now.subtract(const Duration(days: 30));
+
+            // Booking trend counts
+            int todayCount = 0, weekCount = 0, monthCount = 0;
+            int totalRevenue = 0;
+            int domVisitors = 0, saarcVisitors = 0, touristVisitors = 0;
+            final Map<String, int> activityCount = {};
+
+            for (final doc in bookings) {
+              final data = doc.data() as Map<String, dynamic>;
+              final ts = data['bookingTimestamp'] as Timestamp?;
+              final amount = (data['totalAmount'] as num? ?? 0).toInt();
+              totalRevenue += amount;
+
+              // Visitor counts (nested map)
+              final vc = data['visitorCounts'] as Map?;
+              if (vc != null) {
+                domVisitors += (vc['domestic'] as num? ?? 0).toInt();
+                saarcVisitors += (vc['saarc'] as num? ?? 0).toInt();
+                touristVisitors += (vc['tourist'] as num? ?? 0).toInt();
+              }
+
+              // Activity (single string field)
+              final activity = data['activity'] as String?;
+              if (activity != null && activity.isNotEmpty) {
+                activityCount[activity] = (activityCount[activity] ?? 0) + 1;
+              }
+              // Also support legacy 'activities' array field
+              final activitiesList = data['activities'] as List?;
+              if (activitiesList != null) {
+                for (final a in activitiesList) {
+                  final name = a.toString();
+                  activityCount[name] = (activityCount[name] ?? 0) + 1;
+                }
+              }
+
+              if (ts != null) {
+                final dt = ts.toDate();
+                if (dt.isAfter(todayStart)) todayCount++;
+                if (dt.isAfter(weekStart)) weekCount++;
+                if (dt.isAfter(monthStart)) monthCount++;
+              }
+            }
+
+            final sortedActivities = activityCount.entries.toList()
+              ..sort((a, b) => b.value.compareTo(a.value));
+            final maxActivity =
+                sortedActivities.isEmpty ? 1 : sortedActivities.first.value;
+
+            final primary = Theme.of(context).colorScheme.primary;
+            final fmt = NumberFormat('#,##0');
+
+            return Scaffold(
+              backgroundColor: const Color(0xFFF4F6F5),
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Booking Trends ──
+                    _label('BOOKING TRENDS'),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      _trendCard(context, 'Today', todayCount,
+                          Icons.today, Colors.teal,
+                          startDate: todayStart,
+                          endDate: todayStart.add(const Duration(days: 1))),
+                      const SizedBox(width: 10),
+                      _trendCard(context, 'This Week', weekCount,
+                          Icons.date_range, Colors.orange,
+                          startDate: weekStart),
+                      const SizedBox(width: 10),
+                      _trendCard(context, 'This Month', monthCount,
+                          Icons.calendar_month, Colors.blue,
+                          startDate: monthStart),
+                    ]),
+                    const SizedBox(height: 20),
+
+                    // ── Revenue ──
+                    _label('TOTAL REVENUE'),
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(
+                              builder: (_) => const AdminBookingsPage())),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 16, horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: primary.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(14),
+                          border:
+                              Border.all(color: primary.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Total Revenue',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black54)),
+                                  Text(
+                                    'Rs. ${fmt.format(totalRevenue)}',
+                                    style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: primary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(Icons.chevron_right,
+                                color: primary.withOpacity(0.5)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // ── Visitor Types ──
+                    _label('VISITOR TYPES'),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      _visitorCard('Domestic', domVisitors,
+                          Icons.home_outlined, Colors.green.shade700),
+                      const SizedBox(width: 10),
+                      _visitorCard('SAARC', saarcVisitors,
+                          Icons.public, Colors.blue.shade700),
+                      const SizedBox(width: 10),
+                      _visitorCard('Foreign', touristVisitors,
+                          Icons.airplanemode_active,
+                          Colors.orange.shade700),
+                    ]),
+                    const SizedBox(height: 20),
+
+                    // ── Bookings per Activity ──
+                    _label('BOOKINGS PER ACTIVITY'),
+                    const SizedBox(height: 10),
+                    if (sortedActivities.isEmpty)
+                      const Text('No data yet.',
+                          style: TextStyle(color: Colors.grey))
+                    else
+                      ...sortedActivities.map((e) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _activityBar(
+                                context, e.key, e.value, maxActivity, primary),
+                          )),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            );
+      },
+    );
+  }
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: Text(text,
+            style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.black45,
+                letterSpacing: 1.2)),
+      );
+
+  Widget _trendCard(BuildContext context, String label, int value,
+      IconData icon, Color color,
+      {DateTime? startDate, DateTime? endDate}) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => AdminBookingsPage(
+                      startDate: startDate,
+                      endDate: endDate,
+                      dateLabel: label,
+                    ))),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [
+              BoxShadow(color: Colors.black12, blurRadius: 4)
+            ],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ===== Booking Stats =====
-              const Text("Booking Stats",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  _buildStatRowCard(
-                      "Today", totalBookingsToday.toString(), Colors.green, Icons.today),
-                  _buildStatRowCard("This Week", totalBookingsWeek.toString(),
-                      Colors.orange, Icons.date_range),
-                  _buildStatRowCard(
-                      "This Month", totalBookingsMonth.toString(), Colors.blue,
-                      Icons.calendar_month),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // ===== Bookings per Activity =====
-              const Text("Bookings per Activity",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Column(
-                children: bookingsPerActivity.entries.map((e) {
-                  double percent = e.value /
-                      (bookingsPerActivity.values
-                          .reduce((a, b) => a > b ? a : b));
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: _buildActivityProgressCard(e.key, e.value, percent),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
-
-              // ===== Bookings per Category =====
-              const Text("Bookings per Category",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: bookingsPerCategory.entries.map((e) {
-                  IconData iconData;
-                  switch (e.key) {
-                    case "Domestic":
-                      iconData = Icons.home;
-                      break;
-                    case "SAARC":
-                      iconData = Icons.public;
-                      break;
-                    case "Tourist":
-                    default:
-                      iconData = Icons.airplanemode_active;
-                      break;
-                  }
-
-                  return _buildStatRowCard(e.key, "${e.value}", Colors.teal,
-                      iconData);
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
-
-              // ===== User Stats =====
-              const Text("User Stats",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  _buildStatRowCard(
-                      "Total Users", totalUsers.toString(), Colors.blue, Icons.group),
-                  _buildStatRowCard(
-                      "Active Users", activeUsers.toString(), Colors.green, Icons.person),
-                  _buildStatRowCard("New Registrations", newRegistrations.toString(),
-                      Colors.orange, Icons.person_add),
-                ],
-              ),
-              const SizedBox(height: 24),
+              Icon(icon, size: 16, color: color),
+              const SizedBox(height: 4),
+              Text(value.toString(),
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: color)),
+              Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 10, color: Colors.black54)),
             ],
           ),
         ),
@@ -129,32 +241,78 @@ class ReportsPage extends StatelessWidget {
     );
   }
 
-  /// ===== Stat Card with icon + label + value in a row =====
-  Widget _buildStatRowCard(String label, String value, Color color, IconData iconData) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 120, maxWidth: 180),
+  Widget _visitorCard(
+      String label, int count, IconData icon, Color color) {
+    return Expanded(
       child: Container(
-        height: cardHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-              colors: [color.withOpacity(0.2), color.withOpacity(0.05)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(cardBorderRadius),
-          boxShadow: [
-            BoxShadow(color: Colors.black12, blurRadius: 8, offset: const Offset(0, 4)),
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(height: 4),
+            Text(count.toString(),
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: color)),
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    const TextStyle(fontSize: 10, color: Colors.black54)),
           ],
         ),
-        child: Row(
+      ),
+    );
+  }
+
+  Widget _activityBar(BuildContext context, String name, int count,
+      int max, Color primary) {
+    final pct = max == 0 ? 0.0 : count / max;
+    return GestureDetector(
+      onTap: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => AdminBookingsPage(activityFilter: name))),
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 4)
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(iconData, color: color, size: 28),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                "$label ($value)",
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(name,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                ),
+                Text('$count',
+                    style: const TextStyle(
+                        fontSize: 12, color: Colors.black54)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 7,
+                backgroundColor: Colors.grey.shade200,
+                valueColor: AlwaysStoppedAnimation<Color>(primary),
               ),
             ),
           ],
@@ -163,32 +321,4 @@ class ReportsPage extends StatelessWidget {
     );
   }
 
-  /// ===== Activity Progress Card =====
-  Widget _buildActivityProgressCard(String activity, int value, double progress) {
-    return Container(
-      height: cardHeight * 0.7,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(cardBorderRadius),
-        boxShadow: [
-          BoxShadow(color: Colors.black12, blurRadius: 6, offset: const Offset(0, 3)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("$activity ($value)",
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          LinearProgressIndicator(
-            value: progress,
-            color: Colors.green,
-            backgroundColor: Colors.grey.shade300,
-            minHeight: 8,
-          ),
-        ],
-      ),
-    );
-  }
 }

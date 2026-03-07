@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cnp_navigator/screens/booking_page.dart';
 import 'package:cnp_navigator/screens/chatbot/chatbot_page.dart';
-import 'package:cnp_navigator/screens/rules/rules_page.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -16,8 +16,6 @@ class _DashboardPageState extends State<DashboardPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   Timer? _autoSlideTimer;
-  
-  // Single selected activity (one booking at a time)
   String? _selectedActivity;
 
   final List<String> sliderImages = [
@@ -27,6 +25,19 @@ class _DashboardPageState extends State<DashboardPage> {
     "assets/images/rhino-1.jpg",
     "assets/images/royal bengal tiger.webp",
   ];
+
+  String _getActivityKey(String activityName) {
+    switch (activityName.toLowerCase()) {
+      case 'jeep safari': return 'activity_jeep_safari';
+      case 'bird watching': return 'activity_bird_watching';
+      case 'elephant safari': return 'activity_elephant_safari';
+      case 'jungle walk': return 'activity_jungle_walk';
+      case 'canoe ride': return 'activity_canoe_ride';
+      case 'tharu cultural program': return 'activity_tharu_cultural';
+      case 'tharu museum': return 'activity_tharu_museum';
+      default: return activityName;
+    }
+  }
 
   String _getActivityImage(String activityName) {
     switch (activityName.toLowerCase()) {
@@ -66,56 +77,68 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), 
+      backgroundColor: const Color(0xFFF8F9FA),
       body: Stack(
         children: [
-          CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              // 1. STRETCHY HERO HEADER
-              SliverAppBar(
-                expandedHeight: 280.0,
-                pinned: true,
-                stretch: true,
-                backgroundColor: const Color(0xFF1B5E20),
-                elevation: 0,
-                flexibleSpace: FlexibleSpaceBar(
-                  centerTitle: true,
-                  title: const Text('CNP EXPLOREE', 
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.1, fontSize: 16)),
-                  background: _buildHeroSlider(),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. FIXED HERO SLIDER
+              SizedBox(
+                height: 260 + topPadding,
+                child: Stack(
+                  children: [
+                    _buildHeroSlider(),
+                    // Top bar overlay on the image
+                    Positioned(
+                      top: topPadding,
+                      left: 0,
+                      right: 0,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.eco_rounded, color: Colors.white),
+                            Expanded(
+                              child: Text(
+                                'dashboard_title'.tr(),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.1,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 48),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                leading: const Icon(Icons.eco_rounded, color: Colors.white),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.info_outline_rounded, color: Colors.white, size: 24),
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RulesPage())),
-                  )
-                ],
               ),
 
-              // 2. TITLE SECTION
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 5),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("Activities", 
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1B5E20))),
-                      Text("Select your jungle adventures", 
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-                    ],
-                  ),
+              // 2. FIXED "ACTIVITIES" HEADER
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('activities'.tr(),
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1B5E20))),
+                    if (context.locale.languageCode == 'en')
+                      Text('jungle_adventures'.tr(),
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                  ],
                 ),
               ),
 
-              // 3. ACTIVITY LIST
-              SliverPadding(
-                padding: const EdgeInsets.only(bottom: 110),
-                sliver: _buildActivitiesFirebaseList(),
-              ),
+              // 3. SCROLLABLE ACTIVITY LIST ONLY
+              Expanded(child: _buildActivitiesFirebaseList()),
             ],
           ),
 
@@ -144,7 +167,7 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
         Positioned(
-          bottom: 50,
+          bottom: 90,
           left: 0,
           right: 0,
           child: Row(
@@ -166,66 +189,100 @@ class _DashboardPageState extends State<DashboardPage> {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('activities').snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
-        
-        return SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              final data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-              final name = data['name'] ?? 'Activity';
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                height: 85,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
-                  ],
-                ),
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
+        final docs = snapshot.data!.docs.where((doc) {
+          final name = (doc.data() as Map<String, dynamic>)['name'] as String?;
+          return name != null && name.trim().isNotEmpty;
+        }).toList();
+        return ListView.builder(
+          padding: const EdgeInsets.only(bottom: 90),
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final data = docs[index].data() as Map<String, dynamic>;
+            final name = data['name'] as String;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              height: 85,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
                 child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(15), bottomLeft: Radius.circular(15)),
-                      child: Image.asset(_getActivityImage(name), width: 85, height: 85, fit: BoxFit.cover),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                          const Text("Chitwan Wildlife", style: TextStyle(fontSize: 11, color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: TextButton(
-                        onPressed: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => BookingPage(activityName: name),
-                            ),
-                          );
-                        },
-                        style: TextButton.styleFrom(
-                          backgroundColor: const Color(0xFF1B5E20).withOpacity(0.1),
-                          minimumSize: const Size(65, 34),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                children: [
+                  // Green accent strip
+                  Container(width: 4, color: const Color(0xFF4CAF50).withOpacity(0.7)),
+                  Image.asset(_getActivityImage(name), width: 81, height: 85, fit: BoxFit.cover),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _getActivityKey(name).tr(),
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        child: const Text("Book", style: TextStyle(color: Color(0xFF1B5E20), fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => BookingPage(activityName: name),
+                        ),
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF4CAF50).withOpacity(0.45),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('book_now'.tr(),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    letterSpacing: 0.5)),
+                            const SizedBox(width: 5),
+                            const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 14),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              );
-            },
-            childCount: snapshot.data!.docs.length,
-          ),
+                  ),
+                ],
+              ),
+              ),
+            );
+          },
         );
       },
     );

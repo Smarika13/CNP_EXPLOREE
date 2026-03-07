@@ -5,9 +5,9 @@ import 'package:audioplayers/audioplayers.dart';
 // Ensure these paths match your folder structure
 import 'dashboard/dashboard_page.dart';
 import 'bookings/bookings_page.dart';
-import 'users/users_page.dart';
 import 'activities/activities_page.dart';
 import 'reports/reports_page.dart';
+import 'dashboard/publish_news_page.dart';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -24,9 +24,9 @@ class _AdminPageState extends State<AdminPage> {
   final List<Widget> _pages = [
     const DashboardPage(),
     const AdminBookingsPage(),
-    const UsersPage(),
+    const PublishNewsPage(),
     const ActivitiesPage(),
-    ReportsPage(),
+    const ReportsPage(),
   ];
 
   @override
@@ -65,7 +65,6 @@ class _AdminPageState extends State<AdminPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F5),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF4FBF26),
         centerTitle: true,
         leading: GestureDetector(
           onTap: _playBirdChirp,
@@ -105,13 +104,11 @@ class _AdminPageState extends State<AdminPage> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onBottomNavTap,
-        selectedItemColor: const Color(0xFF4FBF26),
-        unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: "Dashboard"),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
           BottomNavigationBarItem(icon: Icon(Icons.book_online), label: "Bookings"),
-          BottomNavigationBarItem(icon: Icon(Icons.people), label: "Users"),
+          BottomNavigationBarItem(icon: Icon(Icons.newspaper), label: "Notices"),
           BottomNavigationBarItem(icon: Icon(Icons.local_activity), label: "Activities"),
           BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: "Reports"),
         ],

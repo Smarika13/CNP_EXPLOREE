@@ -16,14 +16,22 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
 
   User? get _user => FirebaseAuth.instance.currentUser;
 
+  static final _actionCodeSettings = ActionCodeSettings(
+    url: 'https://cnpp-58096.firebaseapp.com/verify',
+    handleCodeInApp: false,
+    androidPackageName: 'com.example.cnp_app',
+    androidInstallApp: true,
+    androidMinimumVersion: '1',
+  );
+
   Future<void> _resendEmail() async {
     if (_user == null) return;
     setState(() => _isSending = true);
     try {
-      await _user!.sendEmailVerification();
+      await _user!.sendEmailVerification(_actionCodeSettings);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Verification email sent again.')),
+        const SnackBar(content: Text('Verification email sent. Check your inbox and spam folder.')),
       );
     } finally {
       if (mounted) {
@@ -78,6 +86,29 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
             const Text(
               'Please check your email and click the verification link, '
               'then come back and tap "I have verified".',
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                border: Border.all(color: Colors.amber.shade300),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.amber.shade700, size: 18),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      "Can't find it? Check your Spam or Junk folder. "
+                      "Mark the email as 'Not Spam' so future emails reach your inbox.",
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 32),
             ElevatedButton(
