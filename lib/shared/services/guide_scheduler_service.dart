@@ -577,12 +577,18 @@ class GuideSchedulerService {
       return snap.docs.length;
     }));
 
+    // Build a stable id→count map before sorting to avoid indexOf() returning
+    // wrong indices on a mutating list, which caused RangeError: -1.
+    final countMap = <String, int>{
+      for (int i = 0; i < available.length; i++) available[i].id: counts[i],
+    };
+
     // Least-Assigned First: fewest slots → highest priority
     // Tie-break: earliest createdAt (registration order)
     available.sort((a, b) {
-      final ai = available.indexOf(a);
-      final bi = available.indexOf(b);
-      if (counts[ai] != counts[bi]) return counts[ai].compareTo(counts[bi]);
+      final ca = countMap[a.id]!;
+      final cb = countMap[b.id]!;
+      if (ca != cb) return ca.compareTo(cb);
       final aTs = a.data()['createdAt'] as Timestamp?;
       final bTs = b.data()['createdAt'] as Timestamp?;
       if (aTs == null && bTs == null) return 0;

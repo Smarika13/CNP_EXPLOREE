@@ -38,6 +38,8 @@ dependencies:
   
   # --- Your Unique Features ---
   image_picker: ^1.2.1    # For uploading profile/activity photos
+  tflite_flutter: ^0.12.1 # Animal image recognition
+  image: ^4.8.0           # Image preprocessing for TFLite
   cached_network_image: 3.3.1
   http: ^1.6.0
   flutter_markdown_plus: ^1.0.7
@@ -61,3 +63,5 @@ flutter:
     - assets/images/
     - assets/music/       # Added from friend's project for birdsounds
     - assets/translations/
+    - assets/animal_model.tflite
+    - assets/labels.txt

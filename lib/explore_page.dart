@@ -6,6 +6,7 @@ import 'package:cnp_navigator/screens/rules/rules_page.dart';
 import 'package:cnp_navigator/screens/chatbot/chatbot_page.dart';
 import 'package:cnp_navigator/data/cnp_species_data.dart';
 import '../../shared/common_layout.dart';
+import 'screens/animal_detector/animal_detector_sheet.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -287,7 +288,17 @@ class _ExplorePageState extends State<ExplorePage> {
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(icon: const Icon(Icons.camera_alt_rounded, color: Colors.grey), onPressed: () {}),
+              IconButton(
+            icon: const Icon(Icons.camera_alt_rounded, color: Colors.grey),
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const AnimalDetectorSheet(),
+              );
+            },
+          ),
               if (_searchText.isNotEmpty)
                 IconButton(icon: const Icon(Icons.clear), onPressed: () {
                     _searchController.clear();
