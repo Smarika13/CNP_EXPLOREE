@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -36,6 +38,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   String? selectedGender;
   String? selectedNationality;
+  bool _saving = false;
 
   final List<String> nationalityOptions = const [
     "Nepalese",
@@ -53,8 +56,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
     ageController = TextEditingController(text: widget.age);
     emailController = TextEditingController(text: widget.email);
     contactController = TextEditingController(text: widget.contact);
-    selectedGender = widget.gender;
-    selectedNationality = widget.nationality;
+    const genderOptions = ['Male', 'Female', 'Other'];
+    selectedGender = genderOptions.contains(widget.gender) ? widget.gender : null;
+    selectedNationality = nationalityOptions.contains(widget.nationality) ? widget.nationality : null;
   }
 
   @override
@@ -90,12 +94,35 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  void saveProfile() {
-    if (_formKey.currentState!.validate()) {
+  Future<void> saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    setState(() => _saving = true);
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'fullName':    fullNameController.text.trim(),
+        'dob':         dobController.text.trim(),
+        'age':         int.tryParse(ageController.text.trim()) ?? 0,
+        'gender':      selectedGender ?? '',
+        'nationality': selectedNationality ?? '',
+        'contact':     contactController.text.trim(),
+      }, SetOptions(merge: true));
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profile updated successfully!')),
       );
-      // Here you can send updated data to backend or state management
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update profile: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -206,20 +233,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 width: double.infinity,
                 height: 45,
                 child: ElevatedButton(
-                  onPressed: saveProfile,
+                  onPressed: _saving ? null : saveProfile,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4FBF26),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
                   ),
-                  child: const Text(
-                    'Save Changes',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child: _saving
+                      ? const CircularProgressIndicator(color: Colors.black)
+                      : const Text(
+                          'Save Changes',
+                          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                        ),
                 ),
               ),
             ],

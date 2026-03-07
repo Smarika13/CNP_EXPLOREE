@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import '../../../shared/services/guide_scheduler_service.dart';
 
 class GuideSlotsPage extends StatefulWidget {
   const GuideSlotsPage({super.key});
@@ -11,16 +10,43 @@ class GuideSlotsPage extends StatefulWidget {
 }
 
 class _GuideSlotsPageState extends State<GuideSlotsPage> {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
   DateTime _selectedDate = DateTime.now();
 
   String get _dateStr => DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+  @override
+  void initState() {
+    super.initState();
+    _repairOverbookedSlots();
+  }
+
+  /// Scans the entire guide_slots collection and caps any filledSeats > maxCapacity.
+  Future<void> _repairOverbookedSlots() async {
+    final snap = await FirebaseFirestore.instance.collection('guide_slots').get();
+    final batch = FirebaseFirestore.instance.batch();
+    bool hasFixes = false;
+
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      final filled = data['filledSeats'] as int? ?? 0;
+      final max    = data['maxCapacity'] as int? ?? 1;
+      if (filled > max) {
+        batch.update(doc.reference, {
+          'filledSeats': max,
+          'status': 'full',
+        });
+        hasFixes = true;
+      }
+    }
+
+    if (hasFixes) await batch.commit();
+  }
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+      firstDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (picked != null) setState(() => _selectedDate = picked);
@@ -65,39 +91,14 @@ class _GuideSlotsPageState extends State<GuideSlotsPage> {
               ],
             ),
           ),
-          Expanded(
-            child: DefaultTabController(
-              length: 2,
-              child: Column(
-                children: [
-                  const TabBar(
-                    labelColor: Color(0xFF1B4332),
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: Color(0xFF1B4332),
-                    tabs: [
-                      Tab(text: 'Guide Slots'),
-                      Tab(text: 'Pending'),
-                    ],
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _GuideSlotsList(dateStr: _dateStr),
-                        _PendingBookingsList(db: _db),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          Expanded(child: _GuideSlotsList(dateStr: _dateStr)),
         ],
       ),
     );
   }
 }
 
-// ── Tab 1: Guide Slots ────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _GuideSlotsList extends StatelessWidget {
   final String dateStr;
@@ -109,321 +110,405 @@ class _GuideSlotsList extends StatelessWidget {
       stream: FirebaseFirestore.instance
           .collection('guide_slots')
           .where('date', isEqualTo: dateStr)
-          .orderBy('activityId')
           .snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+        if (snap.hasError) {
+          return Center(child: Text('Error: ${snap.error}', style: const TextStyle(color: Colors.red)));
+        }
         if (!snap.hasData || snap.data!.docs.isEmpty) {
-          return const Center(
-            child: Text('No guide slots for this date.', style: TextStyle(color: Colors.grey)),
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.person_off_outlined, size: 56, color: Colors.grey.shade400),
+                const SizedBox(height: 12),
+                const Text('No slots for this date.', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
           );
         }
 
-        // Group slots by activity
-        final Map<String, List<QueryDocumentSnapshot>> grouped = {};
-        for (final doc in snap.data!.docs) {
-          final activity = doc['activityId'] as String;
-          grouped.putIfAbsent(activity, () => []).add(doc);
-        }
+        // Sort client-side by activityId to avoid composite index requirement
+        final docs = [...snap.data!.docs]
+          ..sort((a, b) {
+            final aId = (a.data() as Map)['activityId'] as String? ?? '';
+            final bId = (b.data() as Map)['activityId'] as String? ?? '';
+            return aId.compareTo(bId);
+          });
 
-        return ListView(
-          padding: const EdgeInsets.all(12),
-          children: grouped.entries.map((entry) {
-            return _ActivityGroup(activity: entry.key, slots: entry.value);
-          }).toList(),
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+          itemCount: docs.length,
+          itemBuilder: (context, i) => _SlotCard(slot: docs[i]),
         );
       },
     );
   }
 }
 
-class _ActivityGroup extends StatelessWidget {
-  final String activity;
-  final List<QueryDocumentSnapshot> slots;
-
-  const _ActivityGroup({required this.activity, required this.slots});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 12, bottom: 6),
-          child: Text(
-            activity,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-              color: Color(0xFF1B4332),
-            ),
-          ),
-        ),
-        ...slots.map((slot) => _SlotCard(slot: slot)),
-        const SizedBox(height: 4),
-      ],
-    );
-  }
-}
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _SlotCard extends StatelessWidget {
   final QueryDocumentSnapshot slot;
   const _SlotCard({required this.slot});
 
-  @override
-  Widget build(BuildContext context) {
-    final filled = slot['filledSeats'] as int;
-    final max = slot['maxCapacity'] as int;
-    final guideId = slot['guideId'] as String;
-    final timeSlot = slot['timeSlot'] as String;
-    final status = slot['status'] as String;
-    final fillFraction = max > 0 ? filled / max : 0.0;
-
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('guides').doc(guideId).get(),
-      builder: (context, snap) {
-        final guideName = snap.hasData ? (snap.data!['name'] ?? 'Unknown') : '...';
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.person, size: 16, color: Color(0xFF2C5F2E)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(guideName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: status == 'full' ? Colors.red[100] : Colors.green[100],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        status == 'full' ? 'Full' : 'Open',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: status == 'full' ? Colors.red[800] : Colors.green[800],
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '$timeSlot  •  $filled/$max visitors',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: fillFraction,
-                    minHeight: 8,
-                    backgroundColor: Colors.grey[200],
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      fillFraction >= 1.0 ? Colors.red : const Color(0xFF4FBF26),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  Color _capColor(double fraction) {
+    if (fraction >= 1.0) return Colors.red;
+    if (fraction >= 0.75) return Colors.orange;
+    return const Color(0xFF2E7D32);
   }
-}
 
-// ── Tab 2: Pending bookings (no guide found) ──────────────────────────────────
-
-class _PendingBookingsList extends StatelessWidget {
-  final FirebaseFirestore db;
-  const _PendingBookingsList({required this.db});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: db
-          .collection('bookings')
-          .where('status', isEqualTo: 'Pending Guide')
-          .snapshots(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snap.hasData || snap.data!.docs.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.check_circle_outline, size: 48, color: Colors.green),
-                SizedBox(height: 12),
-                Text('No pending assignments', style: TextStyle(color: Colors.grey)),
-              ],
-            ),
-          );
-        }
-
-        return ListView(
-          padding: const EdgeInsets.all(12),
-          children: snap.data!.docs.map((doc) => _PendingCard(booking: doc)).toList(),
-        );
-      },
-    );
-  }
-}
-
-class _PendingCard extends StatelessWidget {
-  final QueryDocumentSnapshot booking;
-  const _PendingCard({required this.booking});
-
-  void _showAssignDialog(BuildContext context) {
-    final data = booking.data() as Map<String, dynamic>;
-    final activity = data['pendingActivity'] as String? ?? '';
-    final date = data['date'] as String? ?? '';
-    final timeSlot = data['time'] as String? ?? '';
-    final counts = data['visitorCounts'] as Map<String, dynamic>? ?? {};
-    final groupSize = ((counts['domestic'] ?? 0) as int) +
-        ((counts['saarc'] ?? 0) as int) +
-        ((counts['tourist'] ?? 0) as int);
-
-    String? selectedGuideId;
-    String? selectedGuideName;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: Text('Assign Guide: $activity'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: FutureBuilder<QuerySnapshot>(
-              future: FirebaseFirestore.instance
-                  .collection('guides')
-                  .where('isActive', isEqualTo: true)
-                  .where('specializations', arrayContains: activity)
-                  .get(),
-              builder: (_, snap) {
-                if (!snap.hasData) return const CircularProgressIndicator();
-                final guides = snap.data!.docs;
-                if (guides.isEmpty) {
-                  return const Text('No guides available for this activity.');
-                }
-                return DropdownButtonFormField<String>(
-                  hint: const Text('Select a guide'),
-                  value: selectedGuideId,
-                  items: guides.map((g) {
-                    return DropdownMenuItem(
-                      value: g.id,
-                      child: Text(g['name'] as String),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setDialogState(() {
-                      selectedGuideId = val;
-                      selectedGuideName = guides
-                          .firstWhere((g) => g.id == val)['name'] as String;
-                    });
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B4332)),
-              onPressed: selectedGuideId == null
-                  ? null
-                  : () async {
-                      Navigator.pop(ctx);
-                      await GuideSchedulerService().manuallyAssignGuide(
-                        bookingId: booking.id,
-                        activity: activity,
-                        date: date,
-                        timeSlot: timeSlot,
-                        guideId: selectedGuideId!,
-                        groupSize: groupSize,
-                      );
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('$selectedGuideName assigned to $activity'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      }
-                    },
-              child: const Text('Assign', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      ),
-    );
+  // Activity → icon mapping
+  IconData _activityIcon(String activity) {
+    switch (activity.toLowerCase()) {
+      case 'jeep safari':            return Icons.directions_car;
+      case 'canoe ride':             return Icons.rowing;
+      case 'bird watching':          return Icons.visibility;
+      case 'elephant safari':        return Icons.pets;
+      case 'jungle walk':            return Icons.hiking;
+      case 'tharu cultural program': return Icons.theater_comedy;
+      case 'tharu museum':           return Icons.museum;
+      default:                       return Icons.local_activity;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final data = booking.data() as Map<String, dynamic>;
-    final activities = (data['activities'] as List<dynamic>?)?.join(', ') ?? '';
-    final date = data['date'] as String? ?? '';
-    final time = data['time'] as String? ?? '';
-    final userName = data['userName'] as String? ?? 'Guest';
-    final pendingActivity = data['pendingActivity'] as String? ?? '';
+    final data      = slot.data() as Map<String, dynamic>;
+    final activity  = data['activityId'] as String? ?? '—';
+    final filled    = data['filledSeats'] as int? ?? 0;
+    final max       = data['maxCapacity'] as int? ?? 1;
+    final timeSlot  = data['timeSlot'] as String? ?? '—';
+    final slotType  = data['slotType'] as String? ?? 'guide';
+    final guideId   = data['guideId'] as String? ?? '';
+    final isFull    = (data['status'] as String? ?? '') == 'full';
+    final fraction  = max > 0 ? (filled / max).clamp(0.0, 1.0) : 0.0;
+    final isOverbooked = filled > max;
+    final color     = isOverbooked ? Colors.red : _capColor(fraction);
+
+    // Decide header label and resource tag
+    String resourceLabel;
+    Color  headerColor;
+    switch (slotType) {
+      case 'venue':
+        resourceLabel = 'Venue Seating';
+        headerColor   = const Color(0xFF4A148C);
+        break;
+      case 'resource':
+        resourceLabel = 'No Guide · Elephant';
+        headerColor   = const Color(0xFF4E342E);
+        break;
+      default:
+        resourceLabel = 'Guide Assigned';
+        headerColor   = const Color(0xFF1B4332);
+    }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: Colors.orange, width: 1.5),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      margin: const EdgeInsets.only(bottom: 14),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      clipBehavior: Clip.hardEdge,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header: activity + time ──────────────────────────────────────
+          Container(
+            width: double.infinity,
+            color: headerColor,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
               children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 18),
+                Icon(_activityIcon(activity), color: Colors.white70, size: 15),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    userName,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    activity,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13),
                   ),
                 ),
-                TextButton(
-                  onPressed: () => _showAssignDialog(context),
-                  style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFF1B4332),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text('Assign Guide', style: TextStyle(color: Colors.white, fontSize: 12)),
+                  child: Text(
+                    resourceLabel,
+                    style: const TextStyle(color: Colors.white70, fontSize: 10),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Icon(Icons.access_time, color: Colors.white54, size: 13),
+                const SizedBox(width: 4),
+                Text(timeSlot,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              ],
+            ),
+          ),
+
+          // ── Body ─────────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Guide / resource row
+                if (slotType == 'guide')
+                  _GuideRow(guideId: guideId, maxCapacity: max, isFull: isFull)
+                else
+                  _NoGuideRow(slotType: slotType, maxCapacity: max, isFull: isFull),
+
+                const SizedBox(height: 14),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+
+                // Overbooked warning (legacy data guard)
+                if (isOverbooked)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, size: 14, color: Colors.red.shade700),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Overbooked: $filled booked, max is $max',
+                          style: TextStyle(fontSize: 11, color: Colors.red.shade700, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Capacity numbers
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'VISITORS',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey.shade500,
+                          letterSpacing: 0.8),
+                    ),
+                    RichText(
+                      text: TextSpan(children: [
+                        TextSpan(
+                          text: '$filled',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: color),
+                        ),
+                        TextSpan(
+                          text: ' / $max',
+                          style: TextStyle(
+                              fontSize: 13, color: Colors.grey.shade500),
+                        ),
+                      ]),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Seat dots
+                Row(
+                  children: List.generate(
+                    max,
+                    (i) => Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 2),
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: i < filled ? color : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+
+                // Remaining seats
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    isFull
+                        ? 'No seats remaining'
+                        : '${max - filled} seat${max - filled == 1 ? '' : 's'} remaining',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: isFull
+                            ? Colors.red.shade400
+                            : Colors.grey.shade500),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text('Activities: $activities', style: const TextStyle(fontSize: 12)),
-            Text('Date: $date  •  $time', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            const SizedBox(height: 4),
-            Text(
-              'Needs guide for: $pendingActivity',
-              style: const TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Guide row — fetches guide name async
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GuideRow extends StatelessWidget {
+  final String guideId;
+  final int maxCapacity;
+  final bool isFull;
+  const _GuideRow(
+      {required this.guideId,
+      required this.maxCapacity,
+      required this.isFull});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('guides').doc(guideId).get(),
+      builder: (context, snap) {
+        final guideName = snap.hasData
+            ? ((snap.data!.data() as Map?)?['name'] as String? ?? 'Unknown')
+            : '…';
+        final initials = guideName == '…'
+            ? '?'
+            : guideName
+                .trim()
+                .split(' ')
+                .take(2)
+                .map((w) => w.isNotEmpty ? w[0].toUpperCase() : '')
+                .join();
+
+        return Row(
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: const Color(0xFFE8F5E9),
+              child: Text(initials,
+                  style: const TextStyle(
+                      color: Color(0xFF1B4332),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14)),
             ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(guideName,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 15)),
+                  const SizedBox(height: 2),
+                  Text('Max capacity: $maxCapacity visitors',
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+            _StatusBadge(isFull: isFull),
           ],
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// No-guide row (Elephant Safari / Venue)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NoGuideRow extends StatelessWidget {
+  final String slotType;
+  final int maxCapacity;
+  final bool isFull;
+  const _NoGuideRow(
+      {required this.slotType,
+      required this.maxCapacity,
+      required this.isFull});
+
+  @override
+  Widget build(BuildContext context) {
+    final isVenue    = slotType == 'venue';
+    final bgColor    = isVenue ? const Color(0xFFEDE7F6) : const Color(0xFFEFEBE9);
+    final iconColor  = isVenue ? const Color(0xFF4A148C) : const Color(0xFF4E342E);
+    final label      = isVenue ? 'Open Venue' : 'No Guide Required';
+    final sublabel   = isVenue
+        ? 'Max $maxCapacity seats'
+        : 'Max $maxCapacity visitors per elephant';
+
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 22,
+          backgroundColor: bgColor,
+          child: Icon(
+            isVenue ? Icons.chair_outlined : Icons.pets,
+            color: iconColor,
+            size: 20,
+          ),
         ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: iconColor)),
+              const SizedBox(height: 2),
+              Text(sublabel,
+                  style: TextStyle(
+                      fontSize: 12, color: Colors.grey.shade600)),
+            ],
+          ),
+        ),
+        _StatusBadge(isFull: isFull),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared status badge
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _StatusBadge extends StatelessWidget {
+  final bool isFull;
+  const _StatusBadge({required this.isFull});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isFull ? Colors.red.shade50 : Colors.green.shade50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: isFull ? Colors.red.shade200 : Colors.green.shade200),
+      ),
+      child: Text(
+        isFull ? 'Full' : 'Open',
+        style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: isFull ? Colors.red.shade700 : Colors.green.shade700),
       ),
     );
   }
