@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cnp_navigator/animal_detail_page.dart';
@@ -25,13 +26,16 @@ class _ExplorePageState extends State<ExplorePage> {
   List<Animal> _allAnimals = [];
   bool _loading = true;
 
+  // Firestore species added by admin (merged with local dart data)
+  List<({SpeciesInfo sp, String key, String category})> _firestoreIndex = [];
+
   // Pre-built flat search index: species + lowercase searchable key + category
-  late final List<({SpeciesInfo sp, String key, String category})> _searchIndex;
+  late List<({SpeciesInfo sp, String key, String category})> _searchIndex;
 
   @override
   void initState() {
     super.initState();
-    // Build search index once at startup
+    // Build search index from local dart data
     _searchIndex = [
       for (final entry in allSpecies.entries)
         for (final sp in entry.value)
@@ -43,6 +47,31 @@ class _ExplorePageState extends State<ExplorePage> {
     ];
     _queryService.streamAnimals().listen((animals) {
       if (mounted) setState(() { _allAnimals = animals; _loading = false; });
+    });
+    // Subscribe to Firestore species added by admin
+    FirebaseFirestore.instance.collection('species').snapshots().listen((snap) {
+      final localKeys = {
+        for (final entry in allSpecies.entries)
+          for (final sp in entry.value) sp.englishName.toLowerCase()
+      };
+      // Only include species NOT already in the local dart data
+      final newEntries = snap.docs
+          .where((d) => !localKeys.contains((d['englishName'] as String).toLowerCase()))
+          .map((d) => (
+                sp: SpeciesInfo(
+                  englishName: d['englishName'] ?? '',
+                  nepaliName: d['nepaliName'] ?? '',
+                  scientificName: d['scientificName'] ?? '',
+                  habitat: d['habitat'] ?? '',
+                  conservationStatus: d['conservationStatus'] ?? 'Least Concern',
+                  description: d['description'] ?? '',
+                  funFact: d['funFact'] ?? '',
+                ),
+                category: d['category'] as String? ?? '',
+                key: '${d['englishName']} ${d['nepaliName']}'.toLowerCase(),
+              ))
+          .toList();
+      if (mounted) setState(() => _firestoreIndex = newEntries);
     });
   }
 
@@ -315,30 +344,68 @@ class _ExplorePageState extends State<ExplorePage> {
   }
 
   Widget _buildFilterSection() {
-    final categories = ['Mammal', 'Bird', 'Fish', 'Reptile', 'Amphibian', 'Plant', 'Butterfly'];
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        const Text('Refine by Category', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1B5E20))),
-        if (selectedCategory != null || _searchText.isNotEmpty)
-          TextButton(onPressed: _clearFilters, child: const Text('Reset', style: TextStyle(color: Colors.red))),
-      ]),
-      const SizedBox(height: 8),
-      Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: categories.map((c) {
-            return ChoiceChip(
-              label: Text(c),
-              selected: selectedCategory == c,
-              onSelected: (s) => setState(() => selectedCategory = s ? c : null),
-              selectedColor: const Color(0xFF4CAF50),
-              labelStyle: TextStyle(
-                  color: selectedCategory == c ? Colors.white : Colors.black87,
-                  fontWeight: FontWeight.bold),
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('categories')
+          .orderBy('order')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final List<({String name, String type})> all = snapshot.hasData
+            ? snapshot.data!.docs
+                .where((d) => (d['isActive'] as bool?) == true)
+                .map((d) => (
+                      name: d['name'] as String,
+                      type: (d['type'] as String?) ?? 'fauna',
+                    ))
+                .toList()
+            : [
+                (name: 'Mammal',    type: 'fauna'),
+                (name: 'Bird',      type: 'fauna'),
+                (name: 'Fish',      type: 'fauna'),
+                (name: 'Reptile',   type: 'fauna'),
+                (name: 'Amphibian', type: 'fauna'),
+                (name: 'Butterfly', type: 'fauna'),
+                (name: 'Plant',     type: 'flora'),
+              ];
+
+        final fauna = all.where((c) => c.type == 'fauna').map((c) => c.name).toList();
+        final flora = all.where((c) => c.type == 'flora').map((c) => c.name).toList();
+
+        Widget chipRow(List<String> cats, Color selectedColor) => Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: cats.map((c) => ChoiceChip(
+                    label: Text(c),
+                    selected: selectedCategory == c,
+                    onSelected: (s) => setState(() => selectedCategory = s ? c : null),
+                    selectedColor: selectedColor,
+                    labelStyle: TextStyle(
+                        color: selectedCategory == c ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.bold),
+                  )).toList(),
             );
-          }).toList(),
-      ),
-    ]);
+
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Flora & Fauna', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1B5E20))),
+            if (selectedCategory != null || _searchText.isNotEmpty)
+              TextButton(onPressed: _clearFilters, child: const Text('Reset', style: TextStyle(color: Colors.red))),
+          ]),
+          if (fauna.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            const Text('🐾 Fauna', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF2E7D32))),
+            const SizedBox(height: 6),
+            chipRow(fauna, const Color(0xFF4CAF50)),
+          ],
+          if (flora.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Text('🌿 Flora', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF388E3C))),
+            const SizedBox(height: 6),
+            chipRow(flora, const Color(0xFF66BB6A)),
+          ],
+        ]);
+      },
+    );
   }
 
   Widget _buildWildlifeHorizontalList() {
@@ -404,18 +471,24 @@ class _ExplorePageState extends State<ExplorePage> {
   Widget _buildVerticalSpeciesList() {
     final q = _searchText.toLowerCase();
 
-    // Use pre-built index for fast search
+    // Combine local dart index with Firestore-added species
+    final combinedIndex = [..._searchIndex, ..._firestoreIndex];
+
     List<SpeciesInfo> speciesList;
     if (_searchText.isNotEmpty) {
-      // O(n) scan with O(1) category check — fast for 130+ species
-      speciesList = _searchIndex
+      speciesList = combinedIndex
           .where((e) =>
               e.key.contains(q) &&
               (selectedCategory == null || e.category == selectedCategory))
           .map((e) => e.sp)
           .toList();
     } else {
-      speciesList = allSpecies[selectedCategory] ?? [];
+      final local = allSpecies[selectedCategory] ?? [];
+      final fromFirestore = _firestoreIndex
+          .where((e) => e.category == selectedCategory)
+          .map((e) => e.sp)
+          .toList();
+      speciesList = [...local, ...fromFirestore];
     }
 
     if (speciesList.isEmpty) {

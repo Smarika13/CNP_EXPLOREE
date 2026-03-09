@@ -79,4 +79,96 @@ class FirebaseService {
       throw Exception("Failed to delete booking: $e");
     }
   }
+
+  // 4. SEED SPECIES: Seeds species from local dart data into Firestore (once per category)
+  Future<void> seedSpeciesForCategory(String category, List<Map<String, dynamic>> speciesList) async {
+    final existing = await _db
+        .collection('species')
+        .where('category', isEqualTo: category)
+        .limit(1)
+        .get();
+    if (existing.docs.isNotEmpty) return; // already seeded
+
+    final batch = _db.batch();
+    for (final sp in speciesList) {
+      final ref = _db.collection('species').doc();
+      batch.set(ref, sp);
+    }
+    await batch.commit();
+  }
+
+  Stream<QuerySnapshot> streamSpeciesByCategory(String category) {
+    // No orderBy to avoid requiring a composite index — sort in UI code
+    return _db
+        .collection('species')
+        .where('category', isEqualTo: category)
+        .snapshots();
+  }
+
+  Future<void> addSpecies(Map<String, dynamic> data) async {
+    await _db.collection('species').add(data);
+  }
+
+  Future<void> updateSpecies(String docId, Map<String, dynamic> data) async {
+    await _db.collection('species').doc(docId).update(data);
+  }
+
+  Future<void> deleteSpecies(String docId) async {
+    await _db.collection('species').doc(docId).delete();
+  }
+
+  // 5. SEED CATEGORIES: Populates the "categories" collection (runs once)
+  Future<void> seedCategories() async {
+    try {
+      final existing = await _db.collection('categories').limit(1).get();
+      if (existing.docs.isNotEmpty) return; // already seeded
+
+      final List<Map<String, dynamic>> categories = [
+        {'name': 'Mammal',     'type': 'fauna', 'order': 1, 'isActive': true},
+        {'name': 'Bird',       'type': 'fauna', 'order': 2, 'isActive': true},
+        {'name': 'Fish',       'type': 'fauna', 'order': 3, 'isActive': true},
+        {'name': 'Reptile',    'type': 'fauna', 'order': 4, 'isActive': true},
+        {'name': 'Amphibian',  'type': 'fauna', 'order': 5, 'isActive': true},
+        {'name': 'Butterfly',  'type': 'fauna', 'order': 6, 'isActive': true},
+        {'name': 'Plant',      'type': 'flora', 'order': 7, 'isActive': true},
+        {'name': 'Butterfly',  'type': 'flora', 'order': 8, 'isActive': true},
+      ];
+
+      for (var cat in categories) {
+        await _db.collection('categories').add(cat);
+      }
+      print("Database Setup: Categories seeded successfully!");
+    } catch (e) {
+      print("Seeding Error (categories): $e");
+    }
+  }
+
+  // 5. CATEGORIES CRUD
+  Stream<QuerySnapshot> streamCategories() {
+    return _db.collection('categories').orderBy('order').snapshots();
+  }
+
+  Future<void> addCategory(String name, String type, int order) async {
+    await _db.collection('categories').add({
+      'name': name,
+      'type': type,
+      'order': order,
+      'isActive': true,
+    });
+  }
+
+  Future<void> updateCategory(String docId, String name, String type) async {
+    await _db.collection('categories').doc(docId).update({
+      'name': name,
+      'type': type,
+    });
+  }
+
+  Future<void> toggleCategoryActive(String docId, bool isActive) async {
+    await _db.collection('categories').doc(docId).update({'isActive': isActive});
+  }
+
+  Future<void> deleteCategory(String docId) async {
+    await _db.collection('categories').doc(docId).delete();
+  }
 }

@@ -161,17 +161,8 @@ class _AnimalDetectorSheetState extends State<AnimalDetectorSheet> {
     });
   }
 
-  Future<void> _runInference(File imageFile) async {
-    if (_interpreter == null || _labels == null) return;
-
-    final imageData = await imageFile.readAsBytes();
-    img.Image? originalImage = img.decodeImage(imageData);
-    if (originalImage == null) {
-      setState(() => _isScanning = false);
-      return;
-    }
-    img.Image resized = img.copyResize(originalImage, width: 224, height: 224);
-
+  List<double> _inferenceOnImage(img.Image image) {
+    final resized = img.copyResize(image, width: 224, height: 224);
     var input = Float32List(1 * 224 * 224 * 3);
     int idx = 0;
     for (var y = 0; y < 224; y++) {
@@ -182,22 +173,69 @@ class _AnimalDetectorSheetState extends State<AnimalDetectorSheet> {
         input[idx++] = pixel.b / 255.0;
       }
     }
-
     var output = List<double>.filled(_labels!.length, 0)
         .reshape([1, _labels!.length]);
     _interpreter!.run(input.reshape([1, 224, 224, 3]), output);
+    return List<double>.from(output[0]);
+  }
 
-    final probs = List<double>.from(output[0]);
-    final maxVal = probs.reduce((a, b) => a > b ? a : b);
-    final maxIndex = probs.indexOf(maxVal);
+  Future<void> _runInference(File imageFile) async {
+    if (_interpreter == null || _labels == null) return;
+
+    final imageData = await imageFile.readAsBytes();
+    img.Image? originalImage = img.decodeImage(imageData);
+    if (originalImage == null) {
+      setState(() => _isScanning = false);
+      return;
+    }
+    // Apply EXIF orientation so rotated/flipped photos are corrected before inference
+    originalImage = img.bakeOrientation(originalImage);
+
+    // Run inference at 0°, 90°, 180°, 270° and pick the highest-confidence result
+    final rotations = [
+      originalImage,
+      img.copyRotate(originalImage, angle: 90),
+      img.copyRotate(originalImage, angle: 180),
+      img.copyRotate(originalImage, angle: 270),
+    ];
+
+    // Run inference once per rotation, store per-rotation results
+    final allRotationProbs = <List<double>>[];
+    final avgProbs = List<double>.filled(_labels!.length, 0.0);
+    for (final rotated in rotations) {
+      final probs = _inferenceOnImage(rotated);
+      allRotationProbs.add(probs);
+      for (int i = 0; i < probs.length; i++) {
+        avgProbs[i] += probs[i] / rotations.length;
+      }
+    }
+
+    final sorted = List<double>.from(avgProbs)..sort((a, b) => b.compareTo(a));
+    final avgConf = sorted[0];
+    final margin = sorted[0] - sorted[1];
+    final bestIndex = avgProbs.indexOf(avgConf);
+
+    // Consistency check: count how many rotations agree on the same top label
+    int consistentCount = 0;
+    for (final probs in allRotationProbs) {
+      final topIdx = probs.indexOf(probs.reduce((a, b) => a > b ? a : b));
+      if (topIdx == bestIndex) consistentCount++;
+    }
+
+    // Require: avg confidence >= 0.80, margin >= 0.20, AND same label wins in >= 3/4 rotations
+    const double confidenceThreshold = 0.80;
+    const double marginThreshold = 0.20;
+    const int consistencyRequired = 3;
 
     setState(() {
       _isScanning = false;
-      _confidence = maxVal;
-      if (maxVal < 0.60) {
+      _confidence = avgConf;
+      if (avgConf < confidenceThreshold ||
+          margin < marginThreshold ||
+          consistentCount < consistencyRequired) {
         _detectedAnimal = null;
       } else {
-        final raw = _labels![maxIndex];
+        final raw = _labels![bestIndex];
         _detectedAnimal = _labelToDisplayName[raw] ?? raw;
       }
     });
@@ -361,15 +399,14 @@ class _NotFoundCard extends StatelessWidget {
           const Text('🔍', style: TextStyle(fontSize: 48)),
           const SizedBox(height: 10),
           const Text(
-            'Not in Our Database Yet',
+            'Not Recognized',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 10),
           Text(
-            'This animal or object is not currently in our database. '
-            'We are working hard to include more Chitwan wildlife — '
-            'it will be added in a future update!',
+            'This image does not match any animal in our database. '
+            'Please try a clearer photo of a Chitwan wildlife animal.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey.shade700, height: 1.6),
           ),
