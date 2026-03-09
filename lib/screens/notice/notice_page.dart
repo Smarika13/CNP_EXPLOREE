@@ -151,43 +151,116 @@ class _BookingNotifications extends StatelessWidget {
                 : '';
 
             final isConfirmed = status == 'Confirmed';
+            final isPaid = data['paymentStatus'] == 'Paid';
+
+            // Support multiple guides (new) with fallback to single-guide fields (legacy)
+            final rawGuides = data['assignedGuides'] as List<dynamic>?;
+            final List<Map<String, String>> assignedGuides = rawGuides != null
+                ? rawGuides.map((g) {
+                    final m = g as Map<String, dynamic>;
+                    return {
+                      'name':  m['name']  as String? ?? '',
+                      'phone': m['phone'] as String? ?? '',
+                      'email': m['email'] as String? ?? '',
+                    };
+                  }).where((g) => g['name']!.isNotEmpty).toList()
+                : () {
+                    final n = data['guideName'] as String? ?? '';
+                    if (n.isEmpty) return <Map<String, String>>[];
+                    return [{'name': n, 'phone': data['guidePhone'] as String? ?? '', 'email': data['guideEmail'] as String? ?? ''}];
+                  }();
+            final hasGuide = assignedGuides.isNotEmpty;
 
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: isConfirmed
-                      ? const Color(0xFFE8F5E9)
-                      : Colors.orange.shade50,
-                  child: Icon(
-                    isConfirmed
-                        ? Icons.check_circle_outline
-                        : Icons.pending_outlined,
-                    color: isConfirmed ? primaryGreen : Colors.orange.shade700,
-                  ),
-                ),
-                title: Text(
-                  isConfirmed
-                      ? 'Booking Confirmed — $activity'
-                      : 'Booking Pending — $activity',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                subtitle: Column(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 2),
-                    Text('$date  •  $time',
-                        style: const TextStyle(fontSize: 12)),
-                    if (timeStr.isNotEmpty)
-                      Text('Booked on $timeStr',
-                          style: const TextStyle(
-                              fontSize: 11, color: Colors.black45)),
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: isConfirmed
+                              ? const Color(0xFFE8F5E9)
+                              : Colors.orange.shade50,
+                          child: Icon(
+                            isConfirmed
+                                ? Icons.check_circle_outline
+                                : Icons.pending_outlined,
+                            color: isConfirmed ? primaryGreen : Colors.orange.shade700,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isConfirmed
+                                    ? 'Booking Confirmed — $activity'
+                                    : 'Booking Pending — $activity',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              const SizedBox(height: 2),
+                              Text('$date  •  $time',
+                                  style: const TextStyle(fontSize: 12)),
+                              if (timeStr.isNotEmpty)
+                                Text('Booked on $timeStr',
+                                    style: const TextStyle(
+                                        fontSize: 11, color: Colors.black45)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (isPaid && hasGuide) ...[
+                      const SizedBox(height: 10),
+                      const Divider(height: 1),
+                      const SizedBox(height: 8),
+                      for (int gi = 0; gi < assignedGuides.length; gi++) ...[
+                        if (gi > 0) const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.person_pin, size: 15, color: Color(0xFF1B5E20)),
+                            const SizedBox(width: 6),
+                            Text(
+                              assignedGuides.length > 1
+                                  ? 'Guide ${gi + 1}: ${assignedGuides[gi]['name']}'
+                                  : 'Guide: ${assignedGuides[gi]['name']}',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        if ((assignedGuides[gi]['phone'] ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(Icons.phone, size: 14, color: Colors.black45),
+                              const SizedBox(width: 6),
+                              Text(assignedGuides[gi]['phone']!,
+                                  style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                            ],
+                          ),
+                        ],
+                        if ((assignedGuides[gi]['email'] ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(Icons.email_outlined, size: 14, color: Colors.black45),
+                              const SizedBox(width: 6),
+                              Text(assignedGuides[gi]['email']!,
+                                  style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ],
                   ],
                 ),
-                isThreeLine: true,
               ),
             );
           },

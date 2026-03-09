@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import '../../../core/app_theme.dart';
-import 'manage_faqs_page.dart';
-import 'edit_rules_page.dart';
 import 'guide_slots_page.dart';
 import 'manage_guides_page.dart';
 import '../bookings/bookings_page.dart';
+import '../categories/categories_page.dart';
 import '../users/users_page.dart';
 
 class DashboardPage extends StatelessWidget {
@@ -41,6 +39,17 @@ class DashboardPage extends StatelessWidget {
             _NavItem("Guide Assignments", const Color(0xFFE8F5E9), Icons.badge_outlined, const GuideSlotsPage()),
             _NavItem("Manage Guides", const Color(0xFFE0F7FA), Icons.people, const ManageGuidesPage()),
           ]),
+          const SizedBox(height: 12),
+          _navRow(context, [
+            const _NavItem("Edit Flora and Fauna", Color(0xFFFFF8E1), Icons.category_outlined, AdminCategoriesPage()),
+            null,
+          ]),
+          const SizedBox(height: 24),
+
+          // ===== Recent Bookings =====
+          _sectionLabel("Recent Bookings"),
+          const SizedBox(height: 10),
+          const _RecentBookings(),
           const SizedBox(height: 16),
         ],
       ),
@@ -173,6 +182,99 @@ class _NavItem {
   final IconData icon;
   final Widget? page;
   const _NavItem(this.title, this.color, this.icon, this.page);
+}
+
+// ===== Recent Bookings =====
+class _RecentBookings extends StatelessWidget {
+  const _RecentBookings();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('bookings')
+          .orderBy('bookingTimestamp', descending: true)
+          .limit(5)
+          .snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final docs = snap.data!.docs;
+        if (docs.isEmpty) {
+          return const Text('No bookings yet.',
+              style: TextStyle(color: Colors.black45));
+        }
+        return Column(
+          children: docs.map((doc) {
+            final d = doc.data() as Map<String, dynamic>;
+            final activity = d['activity'] as String? ?? 'Activity';
+            final visitor = d['visitorName'] as String? ?? 'Visitor';
+            final date = d['date'] as String? ?? '';
+            final status = d['status'] as String? ?? 'Pending';
+            final isPaid = d['paymentStatus'] == 'Paid';
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 3)],
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: isPaid
+                        ? const Color(0xFFE8F5E9)
+                        : Colors.orange.shade50,
+                    child: Icon(
+                      isPaid ? Icons.check_circle_outline : Icons.pending_outlined,
+                      size: 18,
+                      color: isPaid ? const Color(0xFF2E7D32) : Colors.orange.shade700,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(activity,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13),
+                            overflow: TextOverflow.ellipsis),
+                        Text('$visitor  •  $date',
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.black45),
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isPaid
+                          ? const Color(0xFFE8F5E9)
+                          : Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      isPaid ? 'Paid' : status,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isPaid ? const Color(0xFF2E7D32) : Colors.orange.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
 }
 
 // ===== Live Metrics =====

@@ -100,8 +100,42 @@ class _BookingPageState extends State<BookingPage> {
   SlotCapacity? _slotCapacity;
   bool _fetchingCapacity = false;
 
+  // Activity info loaded from Firestore (falls back to hardcoded map)
+  ActivityInfo? _firestoreInfo;
+  bool _loadingActivity = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadActivityFromFirestore();
+  }
+
+  Future<void> _loadActivityFromFirestore() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('activities')
+          .where('title', isEqualTo: widget.activityName)
+          .limit(1)
+          .get();
+
+      if (snap.docs.isNotEmpty) {
+        final d = snap.docs.first.data();
+        _firestoreInfo = ActivityInfo(
+          name: widget.activityName,
+          domestic: (d['domestic'] as num?)?.toInt() ?? 0,
+          saarc: (d['saarc'] as num?)?.toInt() ?? 0,
+          tourist: (d['tourist'] as num?)?.toInt() ?? 0,
+          timeSlots: List<String>.from(d['timeSlots'] ?? []),
+        );
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loadingActivity = false);
+  }
+
+  ActivityInfo? get _activityInfo => _firestoreInfo ?? activityData[widget.activityName];
+
   int calculateGrandTotal() {
-    final info = activityData[widget.activityName];
+    final info = _activityInfo;
     if (info == null) return 0;
     return (domesticCount * info.domestic) +
            (saarcCount * info.saarc) +
@@ -240,7 +274,7 @@ class _BookingPageState extends State<BookingPage> {
   }
 
   List<String> getAvailableTimeSlots() {
-    final all = activityData[widget.activityName]?.timeSlots ?? [];
+    final all = _activityInfo?.timeSlots ?? [];
     if (selectedDate == null) return all;
 
     final now = DateTime.now();
@@ -275,15 +309,17 @@ class _BookingPageState extends State<BookingPage> {
         backgroundColor: const Color(0xFF4FBF26),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: showReview ? _buildReview(total) : _buildBookingForm(total),
-      ),
+      body: _loadingActivity
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16),
+              child: showReview ? _buildReview(total) : _buildBookingForm(total),
+            ),
     );
   }
 
   Widget _buildBookingForm(int total) {
-    final info = activityData[widget.activityName];
+    final info = _activityInfo;
     final int unitPriceDomestic = info?.domestic ?? 0;
     final int unitPriceSaarc = info?.saarc ?? 0;
     final int unitPriceTourist = info?.tourist ?? 0;

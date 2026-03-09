@@ -123,7 +123,10 @@ class _PaymentPageState extends State<PaymentPage> {
         groupSize: widget.groupSize,
       );
 
-      // 3. Notify assigned guides via email
+      // 3. Save assigned guide info to booking for user notification
+      await _saveGuideInfoToBooking();
+
+      // 4. Notify assigned guides via email
       await _notifyAssignedGuides();
 
       // 4. Send receipt email to user
@@ -165,6 +168,58 @@ class _PaymentPageState extends State<PaymentPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _saveGuideInfoToBooking() async {
+    try {
+      final slotsSnap = await FirebaseFirestore.instance
+          .collection('guide_slots')
+          .where('bookingIds', arrayContains: widget.bookingId)
+          .get();
+
+      // Collect unique guide IDs assigned to this booking
+      final seenGuideIds = <String>{};
+      for (final doc in slotsSnap.docs) {
+        final data = doc.data();
+        if ((data['slotType'] as String? ?? '') != 'guide') continue;
+        final gId = data['guideId'] as String? ?? '';
+        if (gId.isNotEmpty) seenGuideIds.add(gId);
+      }
+
+      if (seenGuideIds.isEmpty) return;
+
+      // Fetch each guide doc and build list
+      final guides = <Map<String, String>>[];
+      for (final gId in seenGuideIds) {
+        final guideDoc = await FirebaseFirestore.instance
+            .collection('guides')
+            .doc(gId)
+            .get();
+        if (!guideDoc.exists) continue;
+        final d = guideDoc.data()!;
+        guides.add({
+          'name':  d['name']  as String? ?? '',
+          'phone': d['phone'] as String? ?? '',
+          'email': d['email'] as String? ?? '',
+        });
+      }
+
+      if (guides.isEmpty) return;
+
+      await FirebaseFirestore.instance
+          .collection('bookings')
+          .doc(widget.bookingId)
+          .update({
+        // Keep legacy single-guide fields for backward compat
+        'guideName':  guides.first['name'],
+        'guidePhone': guides.first['phone'],
+        'guideEmail': guides.first['email'],
+        // New: full list for multiple guides
+        'assignedGuides': guides,
+      });
+    } catch (e) {
+      debugPrint('[Payment] Failed to save guide info: $e');
+    }
   }
 
   Future<void> _notifyAssignedGuides() async {

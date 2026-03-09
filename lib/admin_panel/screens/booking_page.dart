@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'payment_page.dart';
@@ -102,7 +103,43 @@ class _BookingPageState extends State<BookingPage> {
   int saarcCount = 0;
   int touristCount = 0;
 
-  bool showReview = false; // NEW: flag to show review page
+  bool showReview = false;
+
+  ActivityInfo? _firestoreInfo;
+  bool _loadingActivity = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadActivityFromFirestore();
+  }
+
+  Future<void> _loadActivityFromFirestore() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('activities')
+          .where('title', isEqualTo: widget.activityName)
+          .limit(1)
+          .get();
+      if (snap.docs.isNotEmpty) {
+        final d = snap.docs.first.data();
+        _firestoreInfo = ActivityInfo(
+          name: widget.activityName,
+          domestic: (d['domestic'] as num?)?.toInt() ?? 0,
+          saarc: (d['saarc'] as num?)?.toInt() ?? 0,
+          tourist: (d['tourist'] as num?)?.toInt() ?? 0,
+          timeSlots: List<String>.from(d['timeSlots'] ?? []),
+        );
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loadingActivity = false);
+  }
+
+  ActivityInfo get _activity =>
+      _firestoreInfo ?? activityData[widget.activityName] ?? ActivityInfo(
+        name: widget.activityName,
+        domestic: 0, saarc: 0, tourist: 0, timeSlots: [],
+      );
 
   int totalPrice(ActivityInfo a) {
     return (domesticCount * a.domestic) +
@@ -157,7 +194,7 @@ class _BookingPageState extends State<BookingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final activity = activityData[widget.activityName]!;
+    final activity = _activity;
     final total = totalPrice(activity);
 
     return Scaffold(
@@ -167,12 +204,14 @@ class _BookingPageState extends State<BookingPage> {
         backgroundColor: const Color(0xFF4FBF26),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: showReview
-            ? _buildReview(activity, total)
-            : _buildBookingForm(activity, total),
-      ),
+      body: _loadingActivity
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16),
+              child: showReview
+                  ? _buildReview(activity, total)
+                  : _buildBookingForm(activity, total),
+            ),
     );
   }
 

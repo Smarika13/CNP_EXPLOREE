@@ -191,16 +191,24 @@ class _DashboardPageState extends State<DashboardPage> {
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
+        final seen = <String>{};
         final docs = snapshot.data!.docs.where((doc) {
-          final name = (doc.data() as Map<String, dynamic>)['name'] as String?;
-          return name != null && name.trim().isNotEmpty;
-        }).toList();
+          final d = doc.data() as Map<String, dynamic>;
+          final name = (d['title'] ?? d['name']) as String?;
+          if (name == null || name.trim().isEmpty) return false;
+          return seen.add(name.trim().toLowerCase());
+        }).toList()
+          ..sort((a, b) {
+            final nameA = ((a.data() as Map<String, dynamic>)['title'] ?? (a.data() as Map<String, dynamic>)['name']) as String;
+            final nameB = ((b.data() as Map<String, dynamic>)['title'] ?? (b.data() as Map<String, dynamic>)['name']) as String;
+            return nameA.compareTo(nameB);
+          });
         return ListView.builder(
           padding: const EdgeInsets.only(bottom: 90),
           itemCount: docs.length,
           itemBuilder: (context, index) {
             final data = docs[index].data() as Map<String, dynamic>;
-            final name = data['name'] as String;
+            final name = (data['title'] ?? data['name']) as String;
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -218,7 +226,10 @@ class _DashboardPageState extends State<DashboardPage> {
                 children: [
                   // Green accent strip
                   Container(width: 4, color: const Color(0xFF4CAF50).withOpacity(0.7)),
-                  Image.asset(_getActivityImage(name), width: 81, height: 85, fit: BoxFit.cover),
+                  data['imageUrl'] != null && (data['imageUrl'] as String).isNotEmpty
+                      ? Image.network(data['imageUrl'] as String, width: 81, height: 85, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Image.asset(_getActivityImage(name), width: 81, height: 85, fit: BoxFit.cover))
+                      : Image.asset(_getActivityImage(name), width: 81, height: 85, fit: BoxFit.cover),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
