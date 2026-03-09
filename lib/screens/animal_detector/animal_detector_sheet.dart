@@ -191,48 +191,34 @@ class _AnimalDetectorSheetState extends State<AnimalDetectorSheet> {
     // Apply EXIF orientation so rotated/flipped photos are corrected before inference
     originalImage = img.bakeOrientation(originalImage);
 
-    // Run inference at 0°, 90°, 180°, 270° and pick the highest-confidence result
-    final rotations = [
+    // Run inference on original + slight crop variation, average results
+    final variants = [
       originalImage,
-      img.copyRotate(originalImage, angle: 90),
-      img.copyRotate(originalImage, angle: 180),
-      img.copyRotate(originalImage, angle: 270),
+      img.copyRotate(originalImage, angle: 5),
+      img.copyRotate(originalImage, angle: -5),
     ];
 
-    // Run inference once per rotation, store per-rotation results
-    final allRotationProbs = <List<double>>[];
     final avgProbs = List<double>.filled(_labels!.length, 0.0);
-    for (final rotated in rotations) {
-      final probs = _inferenceOnImage(rotated);
-      allRotationProbs.add(probs);
+    for (final variant in variants) {
+      final probs = _inferenceOnImage(variant);
       for (int i = 0; i < probs.length; i++) {
-        avgProbs[i] += probs[i] / rotations.length;
+        avgProbs[i] += probs[i] / variants.length;
       }
     }
 
     final sorted = List<double>.from(avgProbs)..sort((a, b) => b.compareTo(a));
-    final avgConf = sorted[0];
+    final bestConf = sorted[0];
     final margin = sorted[0] - sorted[1];
-    final bestIndex = avgProbs.indexOf(avgConf);
+    final bestIndex = avgProbs.indexOf(bestConf);
 
-    // Consistency check: count how many rotations agree on the same top label
-    int consistentCount = 0;
-    for (final probs in allRotationProbs) {
-      final topIdx = probs.indexOf(probs.reduce((a, b) => a > b ? a : b));
-      if (topIdx == bestIndex) consistentCount++;
-    }
-
-    // Require: avg confidence >= 0.80, margin >= 0.20, AND same label wins in >= 3/4 rotations
-    const double confidenceThreshold = 0.80;
-    const double marginThreshold = 0.20;
-    const int consistencyRequired = 3;
+    // Require: confidence >= 0.50 AND margin >= 0.10 over 2nd place
+    const double confidenceThreshold = 0.50;
+    const double marginThreshold = 0.10;
 
     setState(() {
       _isScanning = false;
-      _confidence = avgConf;
-      if (avgConf < confidenceThreshold ||
-          margin < marginThreshold ||
-          consistentCount < consistencyRequired) {
+      _confidence = bestConf;
+      if (bestConf < confidenceThreshold || margin < marginThreshold) {
         _detectedAnimal = null;
       } else {
         final raw = _labels![bestIndex];
