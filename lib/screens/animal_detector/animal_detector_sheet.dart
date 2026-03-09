@@ -133,7 +133,7 @@ class _AnimalDetectorSheetState extends State<AnimalDetectorSheet> {
     try {
       _interpreter = await Interpreter.fromAsset('assets/animal_model.tflite');
       final labelData = await rootBundle.loadString('assets/labels.txt');
-      _labels = labelData.split('\n').where((s) => s.isNotEmpty).toList();
+      _labels = labelData.split('\n').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
     } catch (e) {
       debugPrint('Error loading model: $e');
     }
