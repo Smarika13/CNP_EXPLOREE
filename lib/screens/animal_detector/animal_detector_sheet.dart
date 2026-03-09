@@ -211,9 +211,9 @@ class _AnimalDetectorSheetState extends State<AnimalDetectorSheet> {
     final margin = sorted[0] - sorted[1];
     final bestIndex = avgProbs.indexOf(bestConf);
 
-    // Require: confidence >= 0.50 AND margin >= 0.10 over 2nd place
-    const double confidenceThreshold = 0.50;
-    const double marginThreshold = 0.10;
+    // Require: confidence >= 0.65 AND margin >= 0.15 over 2nd place
+    const double confidenceThreshold = 0.65;
+    const double marginThreshold = 0.15;
 
     setState(() {
       _isScanning = false;
