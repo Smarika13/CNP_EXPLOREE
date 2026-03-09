@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' show exp;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -169,22 +168,15 @@ class _AnimalDetectorSheetState extends State<AnimalDetectorSheet> {
     for (var y = 0; y < 224; y++) {
       for (var x = 0; x < 224; x++) {
         final pixel = resized.getPixel(x, y);
-        // MobileNet-style normalization: [-1, 1]
-        input[idx++] = (pixel.r / 127.5) - 1.0;
-        input[idx++] = (pixel.g / 127.5) - 1.0;
-        input[idx++] = (pixel.b / 127.5) - 1.0;
+        input[idx++] = pixel.r / 255.0;
+        input[idx++] = pixel.g / 255.0;
+        input[idx++] = pixel.b / 255.0;
       }
     }
     var output = List<double>.filled(_labels!.length, 0)
         .reshape([1, _labels!.length]);
     _interpreter!.run(input.reshape([1, 224, 224, 3]), output);
-
-    // Apply softmax in case model outputs raw logits
-    final rawList = List<double>.from(output[0]);
-    final maxVal = rawList.reduce((a, b) => a > b ? a : b);
-    final expList = rawList.map((v) => exp(v - maxVal)).toList();
-    final sumExp = expList.reduce((a, b) => a + b);
-    return expList.map((v) => v / sumExp).toList();
+    return List<double>.from(output[0]);
   }
 
 
@@ -226,9 +218,9 @@ class _AnimalDetectorSheetState extends State<AnimalDetectorSheet> {
     }
     debugPrint('BEST: ${_labels![bestIndex]} @ ${(bestConf * 100).toStringAsFixed(1)}% margin=${(margin * 100).toStringAsFixed(1)}%');
 
-    // Require: confidence >= 0.65 AND margin >= 0.15 over 2nd place
-    const double confidenceThreshold = 0.65;
-    const double marginThreshold = 0.15;
+    // Require: confidence >= 0.55 AND margin >= 0.10 over 2nd place
+    const double confidenceThreshold = 0.55;
+    const double marginThreshold = 0.10;
 
     setState(() {
       _isScanning = false;
