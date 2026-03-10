@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -218,14 +219,23 @@ class _AnimalDetectorSheetState extends State<AnimalDetectorSheet> {
     }
     debugPrint('BEST: ${_labels![bestIndex]} @ ${(bestConf * 100).toStringAsFixed(1)}% margin=${(margin * 100).toStringAsFixed(1)}%');
 
-    // Require: confidence >= 0.55 AND margin >= 0.10 over 2nd place
+    // Entropy: measures how "spread out" the probabilities are
+    // Low entropy = model is confident on one class (real animal)
+    // High entropy = model is uncertain (non-animal image)
+    double entropy = 0.0;
+    for (final p in avgProbs) {
+      if (p > 1e-10) entropy -= p * log(p); // natural log, max = ln(5) ≈ 1.609
+    }
+    debugPrint('ENTROPY: ${entropy.toStringAsFixed(3)} (max=1.609, threshold=1.0)');
+
+    // Reject if: low confidence OR high entropy (uncertain/non-animal)
     const double confidenceThreshold = 0.55;
-    const double marginThreshold = 0.10;
+    const double entropyThreshold = 1.0;
 
     setState(() {
       _isScanning = false;
       _confidence = bestConf;
-      if (bestConf < confidenceThreshold || margin < marginThreshold) {
+      if (bestConf < confidenceThreshold || entropy > entropyThreshold) {
         _detectedAnimal = null;
       } else {
         final raw = _labels![bestIndex];
