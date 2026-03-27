@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'auth_screen.dart';
 import 'home_page.dart';
 
 class VerifyEmailPage extends StatefulWidget {
@@ -66,6 +67,20 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Verify Email'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () async {
+            final navigator = Navigator.of(context);
+            await FirebaseAuth.instance.signOut();
+            if (!mounted) return;
+            navigator.pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (_) => const AuthPage(initialIsLogin: false),
+              ),
+              (route) => false,
+            );
+          },
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),

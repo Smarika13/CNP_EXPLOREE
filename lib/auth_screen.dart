@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 
 import 'auth_service.dart';
 import 'reset_password.dart';
+import 'verify_email_page.dart';
 
 class AuthPage extends StatefulWidget {
-  const AuthPage({super.key});
+  const AuthPage({super.key, this.initialIsLogin = true});
+
+  final bool initialIsLogin;
 
   @override
   State<AuthPage> createState() => _AuthPageState();
@@ -19,7 +22,7 @@ class _AuthPageState extends State<AuthPage> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
 
-  bool _isLogin = true;
+  late bool _isLogin = widget.initialIsLogin;
   bool _obscurePassword = true;
   bool _isLoading = false;
 
@@ -100,17 +103,18 @@ class _AuthPageState extends State<AuthPage> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _isLogin
-              ? 'Login successful!'
-              : 'Account created! Check your email for a verification link.',
+    if (_isLogin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Login successful!'),
+          backgroundColor: Colors.green,
         ),
-        backgroundColor: Colors.green,
-      ),
-    );
-    // AuthWrapper listening to authStateChanges will automatically route to HomePage
+      );
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const VerifyEmailPage()),
+      );
+    }
   }
 
   @override
