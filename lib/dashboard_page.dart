@@ -4,6 +4,7 @@ import 'package:cnp_navigator/screens/booking_page.dart';
 import 'package:cnp_navigator/screens/chatbot/chatbot_page.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -65,6 +66,19 @@ class _DashboardPageState extends State<DashboardPage> {
     super.dispose();
   }
 
+  Future<void> _launchMapUrl() async {
+    String mapUrl = 'https://www.google.com/maps/search/?api=1&query=Chitwan+National+Park';
+    final doc = await FirebaseFirestore.instance.collection('settings').doc('location').get();
+    if (doc.exists) {
+      final stored = doc.data()?['mapUrl'] as String?;
+      if (stored != null && stored.isNotEmpty) mapUrl = stored;
+    }
+    final uri = Uri.parse(mapUrl);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      debugPrint('Could not launch map URL');
+    }
+  }
+
   void _startAutoSlide() {
     _autoSlideTimer = Timer.periodic(const Duration(seconds: 5), (Timer timer) {
       if (_pageController.hasClients) {
@@ -124,15 +138,41 @@ class _DashboardPageState extends State<DashboardPage> {
 
               // 2. FIXED "ACTIVITIES" HEADER
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text('activities'.tr(),
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1B5E20))),
-                    if (context.locale.languageCode == 'en')
-                      Text('jungle_adventures'.tr(),
-                          style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('activities'.tr(),
+                              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1B5E20))),
+                          if (context.locale.languageCode == 'en')
+                            Text('jungle_adventures'.tr(),
+                                style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _launchMapUrl,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F5E9),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.4)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.location_on, color: Color(0xFF2E7D32), size: 18),
+                            SizedBox(width: 4),
+                            Text('Location', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32))),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

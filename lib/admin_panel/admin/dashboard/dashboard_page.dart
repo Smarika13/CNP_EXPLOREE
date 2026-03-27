@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'edit_location_page.dart';
 import 'guide_slots_page.dart';
 import 'manage_guides_page.dart';
 import '../bookings/bookings_page.dart';
@@ -42,7 +43,7 @@ class DashboardPage extends StatelessWidget {
           const SizedBox(height: 12),
           _navRow(context, [
             const _NavItem("Edit Flora and Fauna", Color(0xFFFFF8E1), Icons.category_outlined, AdminCategoriesPage()),
-            null,
+            const _NavItem("Edit Location", Color(0xFFE8EAF6), Icons.location_on_outlined, EditLocationPage()),
           ]),
           const SizedBox(height: 24),
 
