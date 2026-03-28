@@ -8,12 +8,14 @@ class AdminBookingsPage extends StatefulWidget {
   final DateTime? startDate;
   final DateTime? endDate;
   final String? dateLabel;
+  final bool isTab;
   const AdminBookingsPage({
     super.key,
     this.activityFilter,
     this.startDate,
     this.endDate,
     this.dateLabel,
+    this.isTab = false,
   });
 
   @override
@@ -21,108 +23,18 @@ class AdminBookingsPage extends StatefulWidget {
 }
 
 class _AdminBookingsPageState extends State<AdminBookingsPage> {
-  bool _cleaning = false;
-
-  Future<void> _deleteMultiActivityBookings() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete Multi-Activity Bookings'),
-        content: const Text(
-            'This will permanently delete all bookings that contain more than one activity. This cannot be undone.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete')),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _cleaning = true);
-    try {
-      final snap = await FirebaseFirestore.instance
-          .collection('bookings')
-          .get();
-
-      final toDelete = snap.docs.where((doc) {
-        final acts = doc.data()['activities'] as List?;
-        return acts != null && acts.length > 1;
-      }).toList();
-
-      final batch = FirebaseFirestore.instance.batch();
-      for (final doc in toDelete) {
-        batch.delete(doc.reference);
-      }
-
-      // Also delete orphaned guide_slots linked to these bookings
-      for (final doc in toDelete) {
-        final slotsSnap = await FirebaseFirestore.instance
-            .collection('guide_slots')
-            .where('bookingIds', arrayContains: doc.id)
-            .get();
-        for (final slotDoc in slotsSnap.docs) {
-          batch.delete(slotDoc.reference);
-        }
-      }
-
-      await batch.commit();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Deleted ${toDelete.length} multi-activity booking(s) and their slots.'),
-            backgroundColor: Colors.red.shade700,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _cleaning = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final title = widget.dateLabel ?? widget.activityFilter ?? "Bookings";
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F5),
-      appBar: AppBar(
-        title: Text(title),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-        actions: [
-          if (widget.activityFilter == null &&
-              widget.startDate == null &&
-              widget.endDate == null)
-            _cleaning
-                ? const Padding(
-                    padding: EdgeInsets.all(14),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    ),
-                  )
-                : IconButton(
-                    tooltip: 'Delete multi-activity bookings',
-                    icon: const Icon(Icons.cleaning_services_outlined),
-                    onPressed: _deleteMultiActivityBookings,
-                  ),
-        ],
-      ),
+      appBar: widget.isTab
+          ? null
+          : AppBar(
+              title: Text(widget.dateLabel ?? widget.activityFilter ?? 'Total Bookings'),
+              backgroundColor: const Color(0xFF1B5E20),
+              foregroundColor: Colors.white,
+              centerTitle: true,
+            ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('bookings')
@@ -322,7 +234,7 @@ class AdminDetailView extends StatelessWidget {
       backgroundColor: const Color(0xFFF4F6F5),
       appBar: AppBar(
         title: const Text("Booking Details"),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: const Color(0xFF1B5E20),
         foregroundColor: Colors.white,
         centerTitle: true,
       ),

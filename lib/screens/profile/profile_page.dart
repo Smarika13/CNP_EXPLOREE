@@ -58,7 +58,7 @@ class _ProfilePageState extends State<ProfilePage> {
     if (_loading) {
       return const Scaffold(
         backgroundColor: Color(0xFFF4F6F5),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF4FBF26))),
+        body: Center(child: CircularProgressIndicator(color: Color(0xFF1B5E20))),
       );
     }
 
@@ -73,7 +73,7 @@ class _ProfilePageState extends State<ProfilePage> {
               padding: const EdgeInsets.fromLTRB(20, 48, 20, 24),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF2E7D32), Color(0xFF4FBF26)],
+                  colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -110,7 +110,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: ListTile(
                   leading: const CircleAvatar(
                     radius: 28,
-                    backgroundColor: Color(0xFF4FBF26),
+                    backgroundColor: Color(0xFF1B5E20),
                     child: Icon(Icons.person, color: Colors.white, size: 32),
                   ),
                   title: Text(
@@ -177,7 +177,7 @@ class _ProfilePageState extends State<ProfilePage> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: ListTile(
-        leading: Icon(icon, color: const Color(0xFF4FBF26)),
+        leading: Icon(icon, color: const Color(0xFF1B5E20)),
         title: Text(title, style: const TextStyle(fontSize: 16)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: onTap,

@@ -132,7 +132,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       backgroundColor: const Color(0xFFF4F6F5),
       appBar: AppBar(
         title: const Text("Edit Profile"),
-        backgroundColor: const Color(0xFF4FBF26),
+        backgroundColor: const Color(0xFF1B5E20),
         centerTitle: true,
       ),
       body: SingleChildScrollView(

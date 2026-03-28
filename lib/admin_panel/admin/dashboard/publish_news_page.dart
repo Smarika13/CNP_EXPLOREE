@@ -11,15 +11,9 @@ class PublishNewsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    const primary = Color(0xFF1B5E20);
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F5),
-      appBar: AppBar(
-        title: const Text('News Feed'),
-        backgroundColor: primary,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: primary,
         foregroundColor: Colors.white,
@@ -116,7 +110,7 @@ class _AdminPostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    const primary = Color(0xFF1B5E20);
     final String title = data['title'] ?? '';
     final String body = data['body'] ?? data['subtitle'] ?? '';
     final String? imageUrl = data['imageUrl'] as String?;
@@ -666,7 +660,7 @@ class _ComposePostPageState extends State<_ComposePostPage> {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    const primary = Color(0xFF1B5E20);
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F5),
       appBar: AppBar(
@@ -716,7 +710,7 @@ class _ComposePostPageState extends State<_ComposePostPage> {
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add_photo_alternate_outlined,
+                        const Icon(Icons.add_photo_alternate_outlined,
                             size: 40, color: primary),
                         const SizedBox(height: 8),
                         Text('Tap to add a photo (optional)',

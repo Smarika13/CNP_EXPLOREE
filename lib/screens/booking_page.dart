@@ -306,7 +306,7 @@ class _BookingPageState extends State<BookingPage> {
       backgroundColor: const Color(0xFFF4F6F5),
       appBar: AppBar(
         title: Text('booking_title'.tr()),
-        backgroundColor: const Color(0xFF4FBF26),
+        backgroundColor: const Color(0xFF1B5E20),
         centerTitle: true,
       ),
       body: _loadingActivity

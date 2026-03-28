@@ -23,7 +23,7 @@ class _AdminPageState extends State<AdminPage> {
   // List of sub-pages for the bottom navigation
   final List<Widget> _pages = [
     const DashboardPage(),
-    const AdminBookingsPage(),
+    const AdminBookingsPage(isTab: true),
     const PublishNewsPage(),
     const ActivitiesPage(),
     const ReportsPage(),
@@ -65,6 +65,7 @@ class _AdminPageState extends State<AdminPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F5),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF1B5E20),
         centerTitle: true,
         leading: GestureDetector(
           onTap: _playBirdChirp,
@@ -85,11 +86,15 @@ class _AdminPageState extends State<AdminPage> {
             ),
           ),
         ),
-        title: const Text(
-          "CNP EXPLOREE",
-          style: TextStyle(fontSize: 17, color: Colors.white),
-        ),
-        // ADDED LOGOUT BUTTON HERE
+        title: _selectedIndex == 1
+            ? const Text('Bookings', style: TextStyle(color: Colors.white))
+            : _selectedIndex == 2
+                ? const Text('News Feed', style: TextStyle(color: Colors.white))
+                : _selectedIndex == 3
+                    ? const Text('Activities', style: TextStyle(color: Colors.white))
+                    : _selectedIndex == 0
+                        ? const Text('Home', style: TextStyle(color: Colors.white))
+                        : const Text('Reports', style: TextStyle(color: Colors.white)),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),

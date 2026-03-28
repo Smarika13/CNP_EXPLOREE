@@ -37,7 +37,7 @@ class _LanguagePreferencesPageState extends State<LanguagePreferencesPage> {
       appBar: AppBar(
         title: Text('lang_title'.tr(),
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: const Color(0xFF1B5E20),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Padding(

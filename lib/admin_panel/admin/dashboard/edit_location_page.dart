@@ -64,7 +64,7 @@ class _EditLocationPageState extends State<EditLocationPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Location'),
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: const Color(0xFF1B5E20),
         foregroundColor: Colors.white,
       ),
       backgroundColor: const Color(0xFFF4F6F5),

@@ -76,7 +76,9 @@ class ManageGuidesPage extends StatelessWidget {
     String? docId,
     Map<String, dynamic>? existing,
   ) {
-    final nameCtrl  = TextEditingController(text: existing?['name']  ?? '');
+    final existingName = (existing?['name'] ?? '').toString().trim().split(RegExp(r'\s+'));
+    final firstNameCtrl = TextEditingController(text: existingName.isNotEmpty ? existingName.first : '');
+    final lastNameCtrl  = TextEditingController(text: existingName.length > 1 ? existingName.skip(1).join(' ') : '');
     final phoneCtrl = TextEditingController(text: existing?['phone'] ?? '');
     final emailCtrl = TextEditingController(text: existing?['email'] ?? '');
     final formKey   = GlobalKey<FormState>();
@@ -92,16 +94,43 @@ class ManageGuidesPage extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextFormField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person),
-                  ),
-                  textCapitalization: TextCapitalization.words,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: firstNameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'First Name',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.person),
+                        ),
+                        textCapitalization: TextCapitalization.words,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Required';
+                          if (v.trim().length < 2) return 'Too short';
+                          if (!RegExp(r"^[a-zA-Z'-]+$").hasMatch(v.trim())) return 'Letters only';
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: lastNameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Last Name',
+                          border: OutlineInputBorder(),
+                        ),
+                        textCapitalization: TextCapitalization.words,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Required';
+                          if (v.trim().length < 2) return 'Too short';
+                          if (!RegExp(r"^[a-zA-Z'-]+$").hasMatch(v.trim())) return 'Letters only';
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -158,7 +187,7 @@ class ManageGuidesPage extends StatelessWidget {
               if (!formKey.currentState!.validate()) return;
               Navigator.pop(ctx);
               final data = {
-                'name':  nameCtrl.text.trim(),
+                'name': '${firstNameCtrl.text.trim()} ${lastNameCtrl.text.trim()}',
                 'phone': phoneCtrl.text.trim(),
                 'email': emailCtrl.text.trim().toLowerCase(),
               };

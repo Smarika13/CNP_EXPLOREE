@@ -10,7 +10,7 @@ class LogoutPage extends StatelessWidget {
       backgroundColor: const Color(0xFFF4F6F5),
       appBar: AppBar(
         title: const Text("Logout"),
-        backgroundColor: const Color(0xFF4FBF26),
+        backgroundColor: const Color(0xFF1B5E20),
         centerTitle: true,
       ),
       body: Center(
@@ -58,8 +58,8 @@ class LogoutPage extends StatelessWidget {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4FBF26),
-                        foregroundColor: Colors.black,
+                        backgroundColor: const Color(0xFF1B5E20),
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),

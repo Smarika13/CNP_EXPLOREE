@@ -151,7 +151,7 @@ class _FAQsPageState extends State<FAQsPage> {
       backgroundColor: const Color(0xFFF1F8E9),
       appBar: AppBar(
         title: Text('faq_title'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: const Color(0xFF1B5E20),
         iconTheme: const IconThemeData(color: Colors.white),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),

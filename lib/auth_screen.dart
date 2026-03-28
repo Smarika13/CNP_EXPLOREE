@@ -257,7 +257,7 @@ class _AuthPageState extends State<AuthPage> {
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _handleSubmit,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF7CFF4E),
+                            backgroundColor: const Color(0xFF1B5E20),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),
@@ -269,13 +269,13 @@ class _AuthPageState extends State<AuthPage> {
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.5,
                                     valueColor:
-                                        AlwaysStoppedAnimation<Color>(Colors.black),
+                                        AlwaysStoppedAnimation<Color>(Colors.white),
                                   ),
                                 )
                               : Text(
                                   _isLogin ? 'Login' : 'Sign Up',
                                   style: const TextStyle(
-                                    color: Colors.black,
+                                    color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
